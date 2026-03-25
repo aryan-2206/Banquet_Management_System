@@ -1,0 +1,317 @@
+/* c- prefix for cancellation log */
+
+.c-root {
+  min-height: 100vh;
+  padding: 80px 24px 40px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.c-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.c-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.5rem;
+  color: #E85555; /* Distinct color for cancellation/loss */
+  line-height: 1.2;
+}
+.c-sub {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+.c-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+.c-btn--primary {
+  background: linear-gradient(135deg, #E85555, #8A2020);
+  color: #fff;
+}
+.c-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(232, 85, 85, 0.3);
+}
+.c-btn--outline {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.c-btn--outline:hover {
+  border-color: #fff;
+}
+
+.c-toggles {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  border-radius: 12px;
+  width: fit-content;
+}
+.c-toggleBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  padding: 8px 24px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.c-toggleBtn:hover {
+  color: #fff;
+}
+.c-toggleBtn.active {
+  background: rgba(232, 85, 85, 0.15);
+  color: #E85555;
+}
+
+/* Dashboard Layout */
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 24px;
+}
+
+.c-panel {
+  padding: 24px;
+  border-radius: 12px;
+}
+.c-panel__title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.c-statGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.c-statCard {
+  background: rgba(255,255,255,0.03);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.c-statLabel {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.c-statVal {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.c-tierBarWrapper {
+  display: flex;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.1);
+  margin-bottom: 8px;
+}
+.c-tierBar {
+  height: 100%;
+}
+.c-tierLabels {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.6);
+}
+.c-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+/* Reason Breakdown */
+.c-mockChart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.c-mockChartRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.c-mockChartLabel {
+  flex: 0 0 140px;
+  font-size: 0.85rem;
+  color: #fff;
+}
+.c-mockChartBar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.c-mockChartBar div {
+  height: 100%;
+  border-radius: 99px;
+}
+.c-mockChartVal {
+  flex: 0 0 30px;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.5);
+  text-align: right;
+}
+
+/* Funnel */
+.c-funnel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.c-funnelRow {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  gap: 20px;
+  align-items: center;
+  width: 100%;
+}
+.c-funnelStage {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.8);
+  text-align: right;
+}
+.c-funnelVisual {
+  display: flex;
+  justify-content: center;
+}
+.c-funnelBar {
+  height: 32px;
+  background: var(--gold);
+  border-radius: 4px;
+}
+.c-funnelDrop {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.5);
+}
+
+/* Log View Filters */
+.c-filters {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.c-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.c-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.c-label {
+  display: block;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 6px;
+}
+
+.c-tableCard {
+  border-radius: 12px;
+  overflow-x: auto;
+}
+.c-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  color: #fff;
+}
+.c-table th {
+  padding: 16px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.c-table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.95rem;
+  vertical-align: top;
+}
+
+.c-sentiment {
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.1);
+  display: inline-block;
+  white-space: nowrap;
+}
+.c-sentiment--mightreturn { background: rgba(95, 191, 138, 0.15); color: #5FBF8A; }
+.c-sentiment--neutral { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.c-sentiment--disappointed { background: rgba(232, 196, 85, 0.15); color: #E8C455; }
+.c-sentiment--hostile { background: rgba(232, 85, 85, 0.15); color: #E85555; }
+
+/* Recovery Pipeline */
+.c-recoveryCard {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.c-recoveryCard__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Modal */
+.c-modalOverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.c-modal {
+  width: 100%;
+  max-width: 600px;
+  padding: 32px;
+  border-radius: 16px;
+  background: var(--obsidian-3);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+}

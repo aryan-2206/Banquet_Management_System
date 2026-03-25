@@ -17,6 +17,8 @@ const InstallmentSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'overdue'],
     default: 'pending',
   },
+  // Tracks which reminders have already been sent (e.g. ['2day', '1day'])
+  remindersSent: [{ type: String }],
 });
 
 const PaymentSchema = new mongoose.Schema({
@@ -31,6 +33,9 @@ const PaymentSchema = new mongoose.Schema({
   gstRate: { type: Number, default: 18 },
   isInterstate: { type: Boolean, default: false },
   invoiceNo: { type: String },
+
+  // Client-chosen date for the 50% pre-event instalment
+  preEventInstallmentDate: { type: Date },
 
   installmentPlan: {
     template: { type: String, default: 'standard' },

@@ -217,8 +217,10 @@ function BookingQueueTable({ bookings, onRecordPayment, onViewPlan }) {
 /* ── Main Dashboard ── */
 export default function FinanceDashboard() {
   const navigate = useNavigate();
-  const bookings  = useFinanceStore((s) => s.bookings);
+  const bookings      = useFinanceStore((s) => s.bookings);
   const selectBooking = useFinanceStore((s) => s.selectBooking);
+  const fetchPayments = useFinanceStore((s) => s.fetchPayments);
+  const loading       = useFinanceStore((s) => s.loading);
 
   const [activeTab, setActiveTab]     = useState('overview');
   const [search, setSearch]           = useState('');
@@ -227,7 +229,10 @@ export default function FinanceDashboard() {
   const [notifDot, setNotifDot]       = useState(true);
   const [mounted, setMounted]         = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { 
+    setMounted(true); 
+    fetchPayments();
+  }, [fetchPayments]);
 
   const pendingCount  = bookings.filter((b) => b.status === 'temporary').length;
   const overdueCount  = bookings.filter((b) => b.status === 'overdue').length;
@@ -324,13 +329,17 @@ export default function FinanceDashboard() {
         <section className="fd-section">
           <div className="fd-section__header">
             <h2 className="fd-section__title">Booking Queue</h2>
-            <span className="fd-section__count">{filteredBookings.length} bookings</span>
+            <span className="fd-section__count">{loading ? 'Loading...' : `${filteredBookings.length} bookings`}</span>
           </div>
-          <BookingQueueTable
-            bookings={filteredBookings}
-            onRecordPayment={(id) => { selectBooking(id); setPayModalId(id); }}
-            onViewPlan={(id) => { selectBooking(id); navigate('/finance/installments'); }}
-          />
+          {loading ? (
+             <div style={{ textAlign: 'center', padding: '40px', color: '#9D9880' }}>Loading payment queue from database...</div>
+          ) : (
+            <BookingQueueTable
+              bookings={filteredBookings}
+              onRecordPayment={(id) => { selectBooking(id); setPayModalId(id); }}
+              onViewPlan={(id) => { selectBooking(id); navigate('/finance/installments'); }}
+            />
+          )}
         </section>
       </div>
 

@@ -1,44 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useBookingStore from '../../store/bookingSlice';
 import './SalesDashboard.css';
-
-/* ─── Mock data ───────────────────────────────────────────── */
-const STATS = [
-  { label: 'Active Bookings',   value: '24',    trend: '+3 this week' },
-  { label: 'Revenue Pipeline',  value: '₹18.4L', trend: '+12% vs last month' },
-  { label: 'Pending Enquiries', value: '7',     trend: '2 need follow-up' },
-  { label: 'Avg Pax / Event',   value: '280',   trend: 'Target: 300 pax' },
-];
-
-const BOOKINGS = [
-  { id: 'BK-2601', party: 'Mehta Wedding',      client: 'Rakesh Mehta',  date: '14 Jul 2026', venue: 'Grand Ballroom',  pax: 450, status: 'confirmed' },
-  { id: 'BK-2598', party: 'Sharma Birthday',    client: 'Neha Sharma',   date: '18 Jul 2026', venue: 'Terrace Garden',  pax: 120, status: 'enquiry'   },
-  { id: 'BK-2593', party: 'Kapoor Reception',   client: 'Vijay Kapoor',  date: '22 Jul 2026', venue: 'Crystal Hall',    pax: 320, status: 'confirmed' },
-  { id: 'BK-2590', party: 'Tech Conf. Dinner',  client: 'Infosys Ltd.',  date: '25 Jul 2026', venue: 'Banquet Suite A', pax: 200, status: 'confirmed' },
-  { id: 'BK-2585', party: 'Gupta Anniversary',  client: 'Sunil Gupta',   date: '02 Aug 2026', venue: 'Rooftop Lounge',  pax: 80,  status: 'temporary' },
-  { id: 'BK-2580', party: 'Patel Engagement',   client: 'Meera Patel',   date: '10 Aug 2026', venue: 'Garden Pavilion', pax: 160, status: 'enquiry'   },
-];
-
-const PIPELINE = [
-  { stage: 'New Enquiry',    count: 7, value: '₹4.2L', color: '#5B8FE8', pct: 43 },
-  { stage: 'Menu Pending',   count: 5, value: '₹3.8L', color: '#E8C455', pct: 31 },
-  { stage: 'Finance Review', count: 4, value: '₹5.1L', color: '#9B6DE8', pct: 25 },
-  { stage: 'Confirmed',      count: 8, value: '₹5.3L', color: '#5FBF8A', pct: 50 },
-];
-
-const SCHEDULE = [
-  { time: '10:00', label: 'Site visit — Mehta Wedding',        tag: 'confirmed' },
-  { time: '12:30', label: 'Client call — Sharma Birthday',     tag: 'enquiry'   },
-  { time: '15:00', label: 'Finance review — Kapoor Reception', tag: 'finance'   },
-  { time: '17:30', label: 'Menu tasting — Gupta Anniversary',  tag: 'ops'       },
-];
-
-const STATUS_BADGE = {
-  confirmed: 'sd-badge--green',
-  enquiry:   'sd-badge--amber',
-  temporary: 'sd-badge--purple',
-  booked:    'sd-badge--blue',
-};
 
 /* ─── Component ───────────────────────────────────────────── */
 export default function SalesDashboard() {
@@ -46,15 +9,91 @@ export default function SalesDashboard() {
   const [activeNav, setActiveNav] = useState('dashboard');
   const [search, setSearch]       = useState('');
 
-  const filtered = BOOKINGS.filter(b =>
-    b.party.toLowerCase().includes(search.toLowerCase()) ||
-    b.client.toLowerCase().includes(search.toLowerCase()) ||
-    b.id.toLowerCase().includes(search.toLowerCase())
-  );
+  const { bookings, fetchBookings, loading } = useBookingStore();
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // Derived Statistics from Live DB
+  const stats = useMemo(() => {
+    const active = bookings.filter(b => b.status === 'confirmed').length;
+    const pending = bookings.filter(b => b.status === 'enquiry').length;
+    const nonCancelled = bookings.filter(b => b.status !== 'cancelled');
+    
+    const revenue = nonCancelled.reduce((acc, b) => acc + (b.total || 0), 0);
+    const avgPax = nonCancelled.length 
+      ? Math.round(nonCancelled.reduce((acc, b) => acc + (b.pax || 0), 0) / nonCancelled.length) 
+      : 0;
+    
+    const fmtRev = revenue >= 100000 ? `₹${(revenue/100000).toFixed(2)}L` : `₹${revenue.toLocaleString('en-IN')}`;
+
+    return [
+      { label: 'Active Bookings',   value: active.toString(),    trend: '' },
+      { label: 'Revenue Pipeline',  value: fmtRev,               trend: 'All non-cancelled' },
+      { label: 'Pending Enquiries', value: pending.toString(),   trend: 'Requires follow-up' },
+      { label: 'Avg Pax / Event',   value: avgPax.toString(),    trend: '' },
+    ];
+  }, [bookings]);
+
+  // Funnel Stages
+  const pipeline = useMemo(() => {
+    const counts = { enquiry: 0, temporary: 0, confirmed: 0 };
+    const values = { enquiry: 0, temporary: 0, confirmed: 0 };
+    
+    bookings.forEach(b => {
+      if (counts[b.status] !== undefined) {
+        counts[b.status]++;
+        values[b.status] += (b.total || 0);
+      }
+    });
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    const fmt = (v) => v >= 100000 ? `₹${(v/100000).toFixed(2)}L` : `₹${v.toLocaleString('en-IN')}`;
+
+    return [
+      { stage: 'New Enquiry', count: counts.enquiry, value: fmt(values.enquiry), color: '#5B8FE8', pct: (counts.enquiry / total) * 100 },
+      { stage: 'Temporary',   count: counts.temporary, value: fmt(values.temporary), color: '#9B6DE8', pct: (counts.temporary / total) * 100 },
+      { stage: 'Confirmed',   count: counts.confirmed, value: fmt(values.confirmed), color: '#5FBF8A', pct: (counts.confirmed / total) * 100 },
+    ];
+  }, [bookings]);
+
+  // Upcoming Schedule
+  const schedule = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0,0,0,0);
+    
+    return bookings
+      .filter(b => b.date && new Date(b.date) >= startOfToday && b.status !== 'cancelled')
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(0, 4)
+      .map(b => ({
+        time: b.startTime || 'TBD',
+        label: `${b.partyName} - ${b.venue}`,
+        tag: b.status,
+        date: new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+      }));
+  }, [bookings]);
+
+  const STATUS_BADGE = {
+    confirmed: 'sd-badge--green',
+    enquiry:   'sd-badge--amber',
+    temporary: 'sd-badge--purple',
+    cancelled: 'sd-badge--red',
+  };
+
+  const filtered = bookings.filter(b => {
+    const s = search.toLowerCase();
+    return (
+      (b.partyName || '').toLowerCase().includes(s) ||
+      (b.clientName || '').toLowerCase().includes(s) ||
+      (b.enquiryId || '').toLowerCase().includes(s) ||
+      (b.venue || '').toLowerCase().includes(s)
+    );
+  }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
   return (
     <div className="sd-root">
-
       {/* ── Topbar ── */}
       <div className="sd-topbar">
         <div className="sd-topbar__brand">
@@ -71,7 +110,6 @@ export default function SalesDashboard() {
 
       {/* ── Body: sidebar + main ── */}
       <div className="sd-body">
-
         {/* ── Left nav ── */}
         <nav className="sd-sidenav">
           {[
@@ -93,11 +131,10 @@ export default function SalesDashboard() {
 
         {/* ── Main content ── */}
         <main className="sd-main">
-
           {/* Hero strip */}
           <div className="sd-hero">
             <div>
-              <div className="sd-hero__kicker">Sales Overview</div>
+              <div className="sd-hero__kicker">Sales Overview (Live DB)</div>
               <div className="sd-hero__headline">Welcome, Sales Manager</div>
               <div className="sd-hero__meta">
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -107,9 +144,9 @@ export default function SalesDashboard() {
 
           {/* Stats */}
           <div className="sd-stats">
-            {STATS.map(s => (
+            {stats.map(s => (
               <div key={s.label} className="sd-stat">
-                <div className="sd-stat__val">{s.value}</div>
+                <div className="sd-stat__val">{loading ? '...' : s.value}</div>
                 <div className="sd-stat__label">{s.label}</div>
                 <div className="sd-stat__trend">{s.trend}</div>
               </div>
@@ -118,11 +155,10 @@ export default function SalesDashboard() {
 
           {/* Two-col: bookings list + aside */}
           <div className="sd-grid2">
-
             {/* Bookings card */}
             <div className="sd-card">
               <div className="sd-card__head">
-                <span className="sd-card__title">Recent Bookings</span>
+                <span className="sd-card__title">Recent Live Bookings</span>
                 <input
                   placeholder="Search…"
                   value={search}
@@ -140,16 +176,18 @@ export default function SalesDashboard() {
                 />
               </div>
               <div className="sd-card__body" style={{ padding: '0 20px' }}>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'rgba(245,240,232,.35)' }}>Loading...</div>
+                ) : filtered.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'rgba(245,240,232,.35)', fontSize: 14 }}>
-                    No bookings match your search
+                    No bookings found in database
                   </div>
                 ) : filtered.map(b => (
-                  <div key={b.id} className="sd-booking">
+                  <div key={b._id} className="sd-booking">
                     <div className="sd-booking__top">
                       <div>
-                        <div className="sd-booking__title">{b.party}</div>
-                        <div className="sd-booking__sub">{b.client} · {b.date} · {b.venue} · {b.pax} pax</div>
+                        <div className="sd-booking__title">{b.partyName} <span style={{fontSize: 11, color: '#9D9880'}}>({b.enquiryId})</span></div>
+                        <div className="sd-booking__sub">{b.clientName} · {b.date ? new Date(b.date).toLocaleDateString('en-IN') : 'TBD'} · {b.venue} · {b.pax} pax</div>
                       </div>
                       <span className={`sd-badge ${STATUS_BADGE[b.status] || 'sd-badge--blue'}`}>
                         {b.status}
@@ -158,7 +196,7 @@ export default function SalesDashboard() {
                     <div className="sd-progress">
                       <div className="sd-progress__fill" style={{ width: b.status === 'confirmed' ? '85%' : b.status === 'temporary' ? '55%' : '30%' }} />
                     </div>
-                    <button className="sd-link-btn">View Details →</button>
+                    <button className="sd-link-btn" onClick={() => navigate(`/sales/booking/${b._id}`)}>View Details →</button>
                   </div>
                 ))}
               </div>
@@ -166,15 +204,14 @@ export default function SalesDashboard() {
 
             {/* Aside */}
             <div className="sd-aside">
-
               {/* Pipeline funnel */}
               <div className="sd-card">
                 <div className="sd-card__head">
                   <span className="sd-card__title">Sales Pipeline</span>
-                  <span className="sd-card__count">24 total</span>
+                  <span className="sd-card__count">{bookings.filter(b=>b.status!=='cancelled').length} total</span>
                 </div>
                 <div className="sd-card__body">
-                  {PIPELINE.map(p => (
+                  {loading ? ( <div style={{padding:'20px',textAlign:'center',color:'#555'}}>Loading...</div> ) : pipeline.map(p => (
                     <div key={p.stage} className="sd-funnel__item">
                       <div className="sd-funnel__bar-wrap">
                         <div className="sd-funnel__bar" style={{ width: `${p.pct}%`, background: p.color }} />
@@ -191,18 +228,23 @@ export default function SalesDashboard() {
                 </div>
               </div>
 
-              {/* Today's schedule */}
+              {/* Upcoming schedule */}
               <div className="sd-card">
                 <div className="sd-card__head">
-                  <span className="sd-card__title">Today's Schedule</span>
+                  <span className="sd-card__title">Upcoming Events</span>
                 </div>
                 <div className="sd-card__body" style={{ padding: '0 20px' }}>
-                  {SCHEDULE.map((s, i) => (
+                  {schedule.length === 0 ? (
+                    <div style={{padding:'20px',textAlign:'center',color:'#555'}}>No upcoming events scheduled</div>
+                  ) : schedule.map((s, i) => (
                     <div key={i} className="sd-schedule__item">
-                      <span className="sd-schedule__time">{s.time}</span>
+                      <div style={{display:'flex', flexDirection:'column'}}>
+                        <span className="sd-schedule__time">{s.time}</span>
+                        <span style={{fontSize:10, color:'#9D9880'}}>{s.date}</span>
+                      </div>
                       <div>
                         <div className="sd-schedule__label">{s.label}</div>
-                        <span className={`sd-schedule__tag sd-schedule__tag--${s.tag}`}>{s.tag}</span>
+                        <span className={`sd-schedule__tag sd-schedule__tag--${s.tag === 'confirmed' ? 'green' : 'amber'}`}>{s.tag}</span>
                       </div>
                     </div>
                   ))}
@@ -216,17 +258,10 @@ export default function SalesDashboard() {
                 </div>
                 <div className="sd-card__body">
                   <div className="sd-alert">
-                    <div className="sd-alert__icon">!</div>
+                    <div className="sd-alert__icon">ℹ</div>
                     <div>
-                      <div className="sd-alert__title">Follow-up Required</div>
-                      <div className="sd-alert__desc">2 bookings need follow-up calls today</div>
-                    </div>
-                  </div>
-                  <div className="sd-alert">
-                    <div className="sd-alert__icon">✓</div>
-                    <div>
-                      <div className="sd-alert__title">Booking Confirmed</div>
-                      <div className="sd-alert__desc">Mehta Wedding deposit received</div>
+                      <div className="sd-alert__title">Live Database Sync Active</div>
+                      <div className="sd-alert__desc">Dashboard metrics are computed in real time from bookings stored in MongoDB.</div>
                     </div>
                   </div>
                 </div>

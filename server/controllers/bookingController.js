@@ -1,5 +1,6 @@
 const Booking = require('../models/Booking');
 const Payment = require('../models/Payment');
+const { sendInstallmentPlan } = require('../services/whatsappService');
 
 // Normalise display names → Mongoose enum slugs
 const VENUE_MAP = {
@@ -43,6 +44,7 @@ const createBooking = async (req, res, next) => {
       tier, addons,
       subtotal, gst, total,
       decoration, entertainment, photography,
+      preEventInstallmentDate,   // client-chosen date for 50% tranche
     } = req.body;
 
     const venueSlug = normalizeVenue(venue);
@@ -96,32 +98,81 @@ const createBooking = async (req, res, next) => {
       status: 'enquiry',
     });
 
-    // Also create a Payment record linked to this booking
-    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
-    const advanceDeadline = new Date(Date.now() + TWO_DAYS);
-    const preEventDate    = new Date(date); preEventDate.setDate(preEventDate.getDate() - 7);
-    const postEventDate   = new Date(date); postEventDate.setDate(postEventDate.getDate() + 3);
+    // ── Instalment plan dates ──────────────────────────────────────────────
+    const TWO_DAYS        = 2 * 24 * 60 * 60 * 1000;
+    const advanceDeadline = new Date(Date.now() + TWO_DAYS);   // 30% due in 48h
+    const eventDate       = new Date(date);
 
-    await Payment.create({
+    // 50%: use client-chosen date if provided, else default 7 days pre-event
+    let preEventDate;
+    if (preEventInstallmentDate) {
+      preEventDate = new Date(preEventInstallmentDate);
+    } else {
+      preEventDate = new Date(eventDate);
+      preEventDate.setDate(preEventDate.getDate() - 7);
+    }
+
+    // 20%: on event day itself
+    const onEventDate = new Date(eventDate);
+
+    const grandTotal = total || 0;
+    const amt30 = Math.round(grandTotal * 0.30);
+    const amt50 = Math.round(grandTotal * 0.50);
+    const amt20 = grandTotal - amt30 - amt50;  // remainder avoids rounding gaps
+
+    const payment = await Payment.create({
       booking: booking._id,
       bookingRef: booking.enquiryId,
       clientName: partyName ? `${partyName} (${clientName})` : clientName,
       clientPhone,
-      eventDate: new Date(date),
+      eventDate,
       hall: venueSlug,
-      totalValue: total || 0,
+      totalValue: grandTotal,
       status: 'temporary',
       advanceDeadline,
+      preEventInstallmentDate: preEventDate,
       installmentPlan: {
         template: 'standard',
         tranches: [
-          { label: '25% Advance (due in 48h)', pct: 25, dueDate: advanceDeadline,  amount: Math.round((total || 0) * 0.25), status: 'pending' },
-          { label: '35% Pre-event',            pct: 35, dueDate: preEventDate,     amount: Math.round((total || 0) * 0.35), status: 'pending' },
-          { label: '40% Post-event',           pct: 40, dueDate: postEventDate,    amount: Math.round((total || 0) * 0.40), status: 'pending' },
+          {
+            label: '30% Advance (due within 48h)',
+            pct: 30, dueDate: advanceDeadline,
+            amount: amt30, status: 'pending', remindersSent: [],
+          },
+          {
+            label: '50% Pre-Event Instalment',
+            pct: 50, dueDate: preEventDate,
+            amount: amt50, status: 'pending', remindersSent: [],
+          },
+          {
+            label: '20% On Event Day',
+            pct: 20, dueDate: onEventDate,
+            amount: amt20, status: 'pending', remindersSent: [],
+          },
         ],
       },
-      auditLog: [{ action: 'BOOKING_CREATED', actor: clientName, details: `New enquiry ${booking.enquiryId} created` }],
+      auditLog: [{
+        action: 'BOOKING_CREATED',
+        actor: clientName,
+        details: `New enquiry ${booking.enquiryId} created`,
+      }],
     });
+
+    // ── Send WhatsApp notification ─────────────────────────────────────────
+    if (clientPhone) {
+      sendInstallmentPlan(clientPhone, {
+        enquiryId:  booking.enquiryId,
+        clientName,
+        eventType:  eventType || eventSlug,
+        eventDate,
+        venue:      venue || venueSlug,
+        pax:        Number(pax),
+        totalValue: grandTotal,
+        tranche1: { amount: amt30, dueDate: advanceDeadline },
+        tranche2: { amount: amt50, dueDate: preEventDate },
+        tranche3: { amount: amt20, dueDate: onEventDate },
+      }).catch(err => console.error('[WhatsApp] send error:', err.message));
+    }
 
     res.status(201).json({
       success: true,
@@ -130,8 +181,15 @@ const createBooking = async (req, res, next) => {
         enquiryId: booking.enquiryId,
         status: booking.status,
         advanceDeadline,
+        preEventInstallmentDate: preEventDate,
       },
-      message: `Enquiry ${booking.enquiryId} created. Advance payment required within 48 hours to secure the booking.`,
+      payment: {
+        id: payment._id,
+        tranches: payment.installmentPlan.tranches.map(t => ({
+          label: t.label, pct: t.pct, amount: t.amount, dueDate: t.dueDate,
+        })),
+      },
+      message: `Enquiry ${booking.enquiryId} created. 30% advance required within 48 hours. WhatsApp confirmation sent to ${clientPhone}.`,
     });
   } catch (err) {
     next(err);

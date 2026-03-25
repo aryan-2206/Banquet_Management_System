@@ -5,6 +5,8 @@ const { Server } = require('socket.io');
 const app = require('./app');
 const connectDB = require('./config/db');
 const { PORT, CORS_ORIGIN } = require('./config/env');
+const { startReminderScheduler } = require('./services/reminderScheduler');
+
 // ── Database ────────────────────────────────────────────────
 connectDB();
 
@@ -54,6 +56,9 @@ cron.schedule('*/15 * * * *', async () => {
     console.error('Cron auto-release error:', err.message);
   }
 });
+
+// ── WhatsApp Reminder Scheduler (daily 9am IST) ─────────────────
+startReminderScheduler();
 
 // ── Start server ────────────────────────────────────────────
 httpServer.listen(PORT, () => {

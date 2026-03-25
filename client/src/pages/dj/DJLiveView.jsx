@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
 import ParticleField from '../../components/shared/ParticleField';
 import useReveal from '../../hooks/useReveal';
 import './DJLiveView.css';
@@ -122,7 +123,7 @@ function ProgressBar({ duration }) {
 /* ── Main Component ── */
 export default function DJLiveView({ onBack }) {
   useReveal();
-  const [queue, setQueue] = useState(INITIAL_QUEUE);
+  const [queue, setQueue] = useState([]);
   const [votedIds, setVotedIds] = useState([]);
   const [playing, setPlaying] = useState(true);
   const [elapsed, setElapsed] = useState(42);
@@ -132,52 +133,63 @@ export default function DJLiveView({ onBack }) {
   const [newReq, setNewReq] = useState(null);
   const [nowPlaying, setNowPlaying] = useState(NOW_PLAYING);
   const [skipped, setSkipped] = useState([]);
+  const socketRef = useRef(null);
+
+  // Socket Connection
+  useEffect(() => {
+    socketRef.current = io('http://localhost:5001/dj');
+    
+    socketRef.current.on('queue:sync', ({ queue: syncedQueue, nowPlaying: syncedNP }) => {
+      setQueue(syncedQueue);
+      if (syncedNP) setNowPlaying(syncedNP);
+    });
+
+    socketRef.current.on('queue:update', ({ queue: updatedQueue, newRequest }) => {
+      setQueue(updatedQueue);
+      if (newRequest) {
+        setNewReq(newRequest);
+        setTimeout(() => setNewReq(null), 3000);
+      }
+    });
+
+    socketRef.current.on('nowPlaying:sync', (song) => {
+      if (song) setNowPlaying(song);
+    });
+
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   // Tick
   useEffect(() => {
     if (!playing) return;
-    const t = setInterval(() => setElapsed(e => e < NOW_PLAYING.duration ? e + 1 : 0), 1000);
+    const t = setInterval(() => setElapsed(e => e < nowPlaying.duration ? e + 1 : 0), 1000);
     return () => clearInterval(t);
-  }, [playing]);
-
-  // Simulate incoming requests
-  useEffect(() => {
-    const incoming = [
-      { id: 99, song: 'Raataan Lambiyan', artist: 'Jubin Nautiyal', requestedBy: 'Table 4', votes: 3, genre: 'Bollywood', duration: '3:51', vibe: 'romantic' },
-      { id: 98, song: 'Stay',             artist: 'The Kid LAROI',  requestedBy: 'Table 11', votes: 1, genre: 'Pop',       duration: '2:21', vibe: 'fun' },
-    ];
-    const timers = incoming.map((req, i) =>
-      setTimeout(() => {
-        setNewReq(req);
-        setTimeout(() => {
-          setQueue(q => [...q, req].sort((a, b) => b.votes - a.votes));
-          setNewReq(null);
-        }, 3000);
-      }, (i + 1) * 12000)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [playing, nowPlaying]);
 
   const vote = (id) => {
     if (votedIds.includes(id)) return;
     setVotedIds(v => [...v, id]);
-    setQueue(q => q.map(r => r.id === id ? { ...r, votes: r.votes + 1 } : r)
-               .sort((a, b) => b.votes - a.votes));
+    socketRef.current.emit('request:vote', { requestId: id });
   };
 
   const skipToNext = () => {
-    const next = filtered[0];
+    const next = queue[0];
     if (!next) return;
     setSkipped(s => [...s, nowPlaying.song]);
     setNowPlaying({ ...next, duration: 240 });
-    setQueue(q => q.filter(r => r.id !== next.id));
+    socketRef.current.emit('nowPlaying:update', { ...next, duration: 240 });
+    socketRef.current.emit('request:remove', { requestId: next.id });
     setElapsed(0);
   };
 
-  const removeFromQueue = (id) => setQueue(q => q.filter(r => r.id !== id));
+  const removeFromQueue = (id) => {
+    socketRef.current.emit('request:remove', { requestId: id });
+  };
 
   const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  const pct = (elapsed / NOW_PLAYING.duration) * 100;
+  const pct = nowPlaying.duration ? (elapsed / nowPlaying.duration) * 100 : 0;
 
   const vibes   = ['all', 'romantic', 'energetic', 'soulful', 'fun'];
   const genres  = ['all', 'Bollywood', 'Pop'];
@@ -285,13 +297,13 @@ export default function DJLiveView({ onBack }) {
               <span className="dj__time">{fmt(elapsed)}</span>
               <div className="dj__progress-track" onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
-                const pct = (e.clientX - rect.left) / rect.width;
-                setElapsed(Math.floor(pct * NOW_PLAYING.duration));
+                const clickPct = (e.clientX - rect.left) / rect.width;
+                setElapsed(Math.floor(clickPct * nowPlaying.duration));
               }}>
                 <div className="dj__progress-fill" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${vibeColor.text}, #C9A84C)` }} />
                 <div className="dj__progress-thumb" style={{ left: `${pct}%`, background: vibeColor.text }} />
               </div>
-              <span className="dj__time">{fmt(NOW_PLAYING.duration)}</span>
+              <span className="dj__time">{fmt(nowPlaying.duration)}</span>
             </div>
 
             {/* Controls */}

@@ -34,6 +34,10 @@ export const api = {
   // AI
   getInsights: ()                 => request('/ai/insights'),
 
+  // Kitchen
+  getKitchenEvents: ()            => request('/kitchen/events'),
+  getLiveHeadcount: (id)          => request(`/kitchen/live-pax/${id}`),
+
   // Health
   health: ()                      => request('/health'),
 };

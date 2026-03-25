@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { CLIENT, EVENTS, NOTIFICATIONS, DOCUMENTS, GUESTS_SUMMARY, daysUntil } from './dashboard/mockData';
+import React, { useState, useEffect } from 'react';
+import api from '../../utils/api';
+import { CLIENT, EVENTS as MOCK_EVENTS, NOTIFICATIONS, DOCUMENTS, GUESTS_SUMMARY, daysUntil } from './dashboard/mockData';
 import '../client-portal/ClientPortal.css';
 import HeroGreeting             from './dashboard/HeroGreeting';
 import UpcomingEventCard        from './dashboard/UpcomingEventCard';
@@ -14,9 +15,7 @@ import VendorVisibilityPanel    from './dashboard/VendorVisibilityPanel';
 import PostEventSection         from './dashboard/PostEventSection';
 
 const GOLD = '#C9A84C';
-const nextEvent   = EVENTS.filter(e => daysUntil(e.date) >= 0).sort((a,b) => new Date(a.date)-new Date(b.date))[0];
-const isPostEvent = nextEvent ? daysUntil(nextEvent.date) < 0 : true;
-const unreadCount = NOTIFICATIONS.filter(n => !n.read).length;
+// Static fallback logic removed; moved into component state
 
 const TABS = [
   { id:'home',      label:'Home',      emoji:'🏠' },
@@ -27,22 +26,21 @@ const TABS = [
   { id:'feedback',  label:'Feedback',  emoji:'⭐' },
 ];
 
-function HomeTab({ setTab }) {
+function HomeTab({ setTab, client, nextEvent, isPostEvent, events }) {
   function handleQuickAction(action) {
-    // Map quick-action IDs to tab IDs
     const tabMap = { payments: 'payments', guests: 'guests', menu: 'events', support: 'home' };
     setTab(tabMap[action] || 'home');
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <HeroGreeting client={CLIENT} nextEvent={nextEvent} onNavigate={setTab} onQuickAction={handleQuickAction} />
+      <HeroGreeting client={client} nextEvent={nextEvent} onNavigate={setTab} onQuickAction={handleQuickAction} />
       <div className="portal-grid-home">
         <UpcomingEventCard event={nextEvent} onNavigate={setTab} />
-        <PaymentSummaryWidget events={EVENTS} compact={true} />
+        <PaymentSummaryWidget events={events} compact={true} />
         <GuestManagementQuickView summary={GUESTS_SUMMARY} onNavigate={setTab} compact={true} />
         <MenuSnapshotCard menu={nextEvent?.menu || []} />
-        <ContactSupportCard manager={CLIENT.manager} />
+        <ContactSupportCard manager={client.manager} />
       </div>
       {isPostEvent && <PostEventSection feedbackSubmitted={false} />}
     </div>
@@ -51,17 +49,62 @@ function HomeTab({ setTab }) {
 
 const PANEL = {
   home:      HomeTab,
-  events:    () => <AllEventsTimeline events={EVENTS} />,
+  events:    ({ events }) => <AllEventsTimeline events={events} />,
   guests:    () => <GuestManagementQuickView summary={GUESTS_SUMMARY} />,
-  payments:  () => <PaymentSummaryWidget events={EVENTS} />,
+  payments:  ({ events }) => <PaymentSummaryWidget events={events} />,
   documents: () => <DocumentsVault documents={DOCUMENTS} />,
-  feedback:  () => <><NotificationsFeed notifications={NOTIFICATIONS} onNavigate={() => {}} />{isPostEvent && <PostEventSection feedbackSubmitted={false} />}</>,
+  feedback:  ({ isPostEvent }) => <><NotificationsFeed notifications={NOTIFICATIONS} onNavigate={() => {}} />{isPostEvent && <PostEventSection feedbackSubmitted={false} />}</>,
 };
 
 export default function ClientDashboard({ onBack }) {
   const [activeTab, setActiveTab] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [events, setEvents] = useState(MOCK_EVENTS);
+  const [clientProfile, setClientProfile] = useState(CLIENT);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getBookings().then(res => {
+      if (res.success && res.bookings.length > 0) {
+        // Map the first DB booking to the portal's format to give a live real-time feel
+        const dbEvents = res.bookings.filter(b => b.status !== 'cancelled').map(b => ({
+          id: b.enquiryId,
+          type: b.eventDetails.eventType,
+          name: b.personalDetails.name + ' Event',
+          date: new Date(b.eventDetails.date).toISOString().split('T')[0],
+          time: b.eventDetails.time || '18:00',
+          hall: b.eventDetails.venue.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          pax: { contracted: b.eventDetails.guests, confirmed: b.eventDetails.guests },
+          menuTier: b.menuSelection.customRequirements?.includes('Elite') ? 'Elite' : 'Premium',
+          status: b.status,
+          totalValue: b.costEstimate.totalCost || 0,
+          paid: 0,
+          instalments: [],
+          highlights: ['Welcome Drink', 'Main Course', 'Desserts'],
+          addOns: [],
+          menuLocked: false,
+          sessions: [],
+          vendors: [],
+          menu: []
+        }));
+        if(dbEvents.length > 0) {
+          setEvents(dbEvents);
+          setClientProfile({
+            ...CLIENT,
+            name: res.bookings[0].personalDetails.name,
+            venue: { name: dbEvents[0].hall, address: '', mapsUrl: '' }
+          });
+        }
+      }
+      setLoading(false);
+    });
+  }, []);
+
   const ActivePanel = PANEL[activeTab];
+
+  const nextEvent   = events.filter(e => daysUntil(e.date) >= 0).sort((a,b) => new Date(a.date)-new Date(b.date))[0] || events[0];
+  const isPostEvent = nextEvent ? daysUntil(nextEvent.date) < 0 : true;
+  const unreadCount = NOTIFICATIONS.filter(n => !n.read).length;
 
   return (
     <div className="min-h-screen bg-[#080810] font-sans text-[#F5F0E8] flex">
@@ -177,13 +220,15 @@ export default function ClientDashboard({ onBack }) {
           <div className="md:hidden px-4 pt-4 pb-1">
             <h1 className="text-xl font-serif font-bold text-[#F5F0E8]">
               {TABS.find(t => t.id === activeTab)?.emoji}{' '}
-              {activeTab === 'home' ? `Welcome, ${CLIENT.name.split(' ')[0]}` : TABS.find(t => t.id === activeTab)?.label}
+              {activeTab === 'home' ? `Welcome, ${clientProfile.name.split(' ')[0]}` : TABS.find(t => t.id === activeTab)?.label}
             </h1>
           </div>
 
           {/* Content padding + max-width */}
           <div className="px-4 md:px-6 lg:px-8 pt-2 pb-4 max-w-[1200px] mx-auto">
-            <ActivePanel setTab={setActiveTab} />
+            {loading ? <div className="text-center text-[#9D9880] py-20">Syncing live portal...</div> : 
+             <ActivePanel setTab={setActiveTab} events={events} client={clientProfile} nextEvent={nextEvent} isPostEvent={isPostEvent} />
+            }
           </div>
         </main>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./AdminDashboard.css";
 import { createInitialAdminState } from "./adminMock";
+import api from "../../utils/api";
 
 function StatCard({ label, value, sub, isPos, onClick }) {
   return (
@@ -61,6 +62,34 @@ export default function AdminDashboard() {
   
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerContent, setDrawerContent] = useState(null);
+
+  useEffect(() => {
+    api.getBookings().then((res) => {
+      if (res.success && res.bookings) {
+        const liveEvents = res.bookings.filter(b => b.status !== 'cancelled').map(b => {
+          const dt = new Date(b.eventDetails.date);
+          return {
+            id: b.enquiryId,
+            name: b.personalDetails.name + " Event",
+            clientName: b.personalDetails.name,
+            tier: b.menuSelection.customRequirements?.includes('Elite') ? 'Elite' : 'Premium',
+            hall: b.eventDetails.venue.replace(/-/g, ' '),
+            pax: b.eventDetails.guests,
+            startTime: b.eventDetails.time || "18:00",
+            health: b.status === 'confirmed' ? 'good' : 'warning',
+            date: dt,
+            status: {
+              finance: b.status === 'confirmed' ? 'Paid in full' : 'Pending',
+              kitchen: b.status === 'confirmed' ? 'Prep Started' : 'Awaiting BEO',
+              gre: 'Not Arrived',
+              dj: 'Offline'
+            }
+          };
+        });
+        setState(s => ({ ...s, events: liveEvents }));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000);

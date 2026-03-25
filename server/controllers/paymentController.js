@@ -1,5 +1,6 @@
 const Payment = require('../models/Payment');
 const Booking = require('../models/Booking');
+const { sendPaymentConfirmation } = require('../services/whatsappService');
 
 // @desc  Get all payment records
 // GET   /api/payments
@@ -129,4 +130,86 @@ const autoRelease = async (req, res, next) => {
   }
 };
 
-module.exports = { getPayments, getPayment, getPaymentByBooking, recordPayment, confirmBooking, updateInstallmentPlan, autoRelease };
+// @desc  Toggle a tranche paid ↔ pending (Finance team manual confirmation)
+// PATCH /api/payments/:id/tranche/:trancheIdx/toggle
+const toggleTranche = async (req, res, next) => {
+  try {
+    const { id, trancheIdx } = req.params;
+    const idx = parseInt(trancheIdx, 10);
+
+    const payment = await Payment.findById(id);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment record not found' });
+
+    const tranches = payment.installmentPlan?.tranches;
+    if (!tranches || idx < 0 || idx >= tranches.length) {
+      return res.status(400).json({ success: false, message: 'Invalid tranche index' });
+    }
+
+    const tranche = tranches[idx];
+    const nowPaid = tranche.status !== 'paid';   // toggling TO paid?
+
+    if (nowPaid) {
+      tranche.status = 'paid';
+      tranche.paidAt = new Date();
+    } else {
+      // Undo: revert to pending
+      tranche.status = 'pending';
+      tranche.paidAt = undefined;
+    }
+
+    // Recalculate overall payment status
+    const totalPaid = tranches
+      .filter(t => t.status === 'paid')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    if (totalPaid >= payment.totalValue) {
+      payment.status = 'settled';
+      payment.settledAt = new Date();
+      await Booking.findByIdAndUpdate(payment.booking, { status: 'completed' });
+    } else if (totalPaid >= payment.totalValue * 0.30 && payment.status === 'temporary') {
+      payment.status = 'deposit';
+      payment.confirmedAt = new Date();
+      await Booking.findByIdAndUpdate(payment.booking, { status: 'confirmed' });
+    } else if (totalPaid === 0 && payment.status !== 'temporary') {
+      // If undo brought total back to 0
+      payment.status = 'temporary';
+    }
+
+    payment.auditLog.push({
+      action: nowPaid ? 'TRANCHE_MARKED_PAID' : 'TRANCHE_UNDO_PAID',
+      actor: 'Finance Manager',
+      details: `${tranche.label} (₹${tranche.amount}) marked as ${nowPaid ? 'PAID' : 'PENDING'} via dashboard toggle`,
+    });
+
+    await payment.save();
+
+    // Emit socket event for real-time dashboard update
+    const io = req.app.get('io');
+    if (io) io.emit('payment:updated', { paymentId: payment._id, status: payment.status });
+
+    // Send WhatsApp confirmation to client (only when marking paid)
+    if (nowPaid && payment.clientPhone) {
+      const bookingRef = payment.bookingRef || payment._id.toString();
+      sendPaymentConfirmation(payment.clientPhone, {
+        clientName:   payment.clientName,
+        enquiryId:    bookingRef,
+        trancheLabel: tranche.label,
+        amount:       tranche.amount,
+      }).catch(err => console.error('[WhatsApp] confirmation error:', err.message));
+    }
+
+    res.json({
+      success: true,
+      payment,
+      message: `${tranche.label} marked as ${nowPaid ? 'PAID ✅' : 'PENDING ⬜'}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getPayments, getPayment, getPaymentByBooking,
+  recordPayment, confirmBooking, updateInstallmentPlan,
+  autoRelease, toggleTranche,
+};

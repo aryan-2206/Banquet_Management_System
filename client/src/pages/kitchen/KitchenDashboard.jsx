@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useKitchenStore from "../../store/kitchenSlice";
+
 const T = {
   bg: "#080810", surface: "rgba(255,255,255,.025)", border: "rgba(201,168,76,.14)",
   gold: "#C9A84C", goldText: "#E8D08A", text: "#F5F0E8",
@@ -68,9 +70,17 @@ export default function KitchenDashboard() {
   const [qFilter, setQFilter] = useState("all");
   const [sFilter, setSFilter] = useState("all");
   const [queue, setQueue] = useState(PREP_QUEUE);
+  
+  const events = useKitchenStore(s => s.events);
+  const loading = useKitchenStore(s => s.loading);
+  const fetchEvents = useKitchenStore(s => s.fetchEvents);
 
-  const totalPax = TODAY_EVENTS.reduce((s, e) => s + e.pax, 0);
-  const totalArrived = TODAY_EVENTS.reduce((s, e) => s + e.arrived, 0);
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const totalPax = events.reduce((s, e) => s + e.pax, 0);
+  const totalArrived = events.reduce((s, e) => s + e.arrived, 0);
   const cPax = useCountup(totalPax);
   const cArrived = useCountup(totalArrived);
   const cActive = useCountup(queue.filter(p => p.status === "active").length);
@@ -98,7 +108,7 @@ export default function KitchenDashboard() {
         <div style={{ fontSize: 11, color: "rgba(201,168,76,.7)", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 800, marginBottom: 6 }}>Operations Centre</div>
         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 700, lineHeight: 1 }}>Kitchen Dashboard</div>
         <div style={{ fontSize: 13, color: T.muted, marginTop: 5 }}>
-          {now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · <span style={{ color: T.goldText }}>{TODAY_EVENTS.length} events tonight</span>
+          {now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · <span style={{ color: T.goldText }}>{loading ? '...' : events.length} events tonight</span>
         </div>
       </div>
 
@@ -182,8 +192,12 @@ export default function KitchenDashboard() {
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green, animation: "kdp 1.8s infinite" }} />
             <SecTitle>Live events</SecTitle>
           </div>
-          {TODAY_EVENTS.map(ev => {
-            const pct = Math.round((ev.arrived / ev.pax) * 100);
+          {loading ? (
+            <div style={{ color: T.dim, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Loading live events...</div>
+          ) : events.length === 0 ? (
+            <div style={{ color: T.dim, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No active events found for today.</div>
+          ) : events.map(ev => {
+            const pct = Math.max(0, Math.min(100, Math.round((ev.arrived / Math.max(ev.pax, 1)) * 100)));
             return (
               <div key={ev.id} onClick={() => navigate?.(`/kitchen/manifest?event=${ev.id}`)} style={{ marginBottom: 16, cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>

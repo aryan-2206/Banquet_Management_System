@@ -61,7 +61,7 @@ const UPCOMING = [
 const TIER_COLORS = { Standard: '#6B7C6E', Premium: '#C9A96E', Elite: '#A07840' };
 
 /* ─── Component ────────────────────────────────────────────────────── */
-export default function SalesDashboard() {
+export default function SalesDashboard({ onBack }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -75,171 +75,130 @@ export default function SalesDashboard() {
   });
 
   return (
-    <div className="sd">
-      {/* ── Header ── */}
-      <header className="sd__header fade-up">
-        <div>
-          <p className="sd__header-date">{new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</p>
-          <h1 className="sd__header-title">Sales Dashboard</h1>
-        </div>
-        <Link to="/sales/new" className="sd__cta">
-          <span>＋</span> New Booking
-        </Link>
-      </header>
-
-      {/* ── Stats Row ── */}
-      <div className="sd__stats">
-        {STATS.map((s, i) => (
-          <div key={s.label} className={`sd__stat-card fade-up fade-up-${i + 1}`}>
-            <span className="sd__stat-label">{s.label}</span>
-            <div className="sd__stat-value">
-              {s.value}<span className="sd__stat-unit">{s.unit}</span>
-            </div>
-            <span className={`sd__stat-trend ${s.up === true ? 'sd__stat-trend--up' : s.up === false ? 'sd__stat-trend--down' : ''}`}>
-              {s.up === true ? '↑' : s.up === false ? '↗' : '→'} {s.trend}
-            </span>
+    <div className="s-root">
+      {/* ── Topbar ── */}
+      <div className="s-topbar">
+        <div className="s-topbar__brand">
+          <div className="s-topbar__logo">S</div>
+          <div>
+            <div className="s-topbar__title">Sales Dashboard</div>
+            <div className="s-topbar__sub">Banquet IntelliManager</div>
           </div>
-        ))}
+        </div>
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#F5F0E8] hover:bg-[rgba(91,143,232,0.1)] transition-colors"
+          style={{ border: '1px solid rgba(91,143,232,0.2)' }}
+        >
+          ← Back
+        </button>
       </div>
 
-      {/* ── Main Grid ── */}
-      <div className="sd__grid">
-
-        {/* Left: Bookings table */}
-        <section className="sd__bookings fade-up fade-up-3">
-          <div className="sd__section-head">
-            <h2 className="sd__section-title">Booking Pipeline</h2>
-            <div className="sd__controls">
-              <div className="sd__search-wrap">
-                <span className="sd__search-icon">⊘</span>
-                <input
-                  className="sd__search"
-                  placeholder="Search bookings…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="sd__filters">
-                {['all','enquiry','temporary','booked','confirmed'].map(f => (
-                  <button
-                    key={f}
-                    className={`sd__filter ${filter === f ? 'sd__filter--active' : ''}`}
-                    onClick={() => setFilter(f)}
-                  >
-                    {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-              </div>
+      {/* ── Layout ── */}
+      <div className="s-layout">
+        {/* Left Navigation */}
+        <div className="s-leftNav">
+          <div className="s-navTile s-navTile--active">
+            <div className="s-navTile__bg" style={{ background: `radial-gradient(ellipse at 20% 20%, rgba(91,143,232,0.22) 0%, transparent 60%)` }} />
+            <div className="s-navTile__content">
+              <div className="s-navTile__title">Dashboard</div>
+              <div className="s-navTile__subtitle">Overview of sales pipeline</div>
             </div>
           </div>
-
-          <div className="sd__table-wrap">
-            <table className="sd__table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Party / Client</th>
-                  <th>Date</th>
-                  <th>Venue</th>
-                  <th>Pax</th>
-                  <th>Tier</th>
-                  <th>Status</th>
-                  <th>Manager</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((b, i) => (
-                  <tr key={b.id} style={{ animationDelay: `${i * 0.05}s` }} className="sd__row">
-                    <td><span className="sd__id">{b.id}</span></td>
-                    <td>
-                      <div className="sd__party">{b.party}</div>
-                      <div className="sd__client-name">{b.client}</div>
-                    </td>
-                    <td className="sd__date">{b.date}</td>
-                    <td className="sd__venue">{b.venue}</td>
-                    <td><span className="sd__pax">{b.pax.toLocaleString()}</span></td>
-                    <td>
-                      <span className="sd__tier" style={{ '--tier-color': TIER_COLORS[b.tier] }}>
-                        {b.tier}
-                      </span>
-                    </td>
-                    <td><StatusBadge status={b.status} dot /></td>
-                    <td className="sd__mgr">{b.manager}</td>
-                    <td>
-                      <Link to={`/sales/${b.id}`} className="sd__view-btn">View →</Link>
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="sd__empty">No bookings match your search.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="s-navTile">
+            <div className="s-navTile__bg" style={{ background: `radial-gradient(ellipse at 20% 20%, rgba(91,143,232,0.22) 0%, transparent 60%)` }} />
+            <div className="s-navTile__content">
+              <div className="s-navTile__title">Bookings</div>
+              <div className="s-navTile__subtitle">Manage all bookings</div>
+            </div>
           </div>
-        </section>
+          <div className="s-navTile">
+            <div className="s-navTile__bg" style={{ background: `radial-gradient(ellipse at 20% 20%, rgba(91,143,232,0.22) 0%, transparent 60%)` }} />
+            <div className="s-navTile__content">
+              <div className="s-navTile__title">Analytics</div>
+              <div className="s-navTile__subtitle">Sales insights</div>
+            </div>
+          </div>
+        </div>
 
-        {/* Right sidebar */}
-        <aside className="sd__aside">
+        {/* Main Content */}
+        <div className="s-main">
+          {/* Hero Strip */}
+          <div className="s-heroStrip">
+            <div>
+              <div className="s-heroStrip__kicker">Sales Overview</div>
+              <div className="s-heroStrip__headline">Welcome to Sales Dashboard</div>
+              <div className="s-heroStrip__meta">{new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
+            </div>
+            <button className="s-heroStrip__cta" style={{ background: '#5B8FE8', border: '1px solid #5B8FE8', color: 'white' }}>
+              + New Booking
+            </button>
+          </div>
 
-          {/* Pipeline funnel */}
-          <div className="sd__card fade-up fade-up-4">
-            <h3 className="sd__card-title">Funnel Overview</h3>
-            <div className="sd__funnel">
-              {PIPELINE.map((p, i) => (
-                <div key={p.stage} className="sd__funnel-item">
-                  <div className="sd__funnel-bar-wrap">
-                    <div
-                      className="sd__funnel-bar"
-                      style={{
-                        width: `${(p.count / 8) * 100}%`,
-                        background: p.color,
-                        opacity: 0.85,
-                      }}
-                    />
-                  </div>
-                  <div className="sd__funnel-meta">
-                    <span className="sd__funnel-stage">{p.stage}</span>
-                    <div className="sd__funnel-nums">
-                      <span className="sd__funnel-count">{p.count}</span>
-                      <span className="sd__funnel-value">{p.value}</span>
-                    </div>
-                  </div>
+          {/* Stats Grid */}
+          <div className="s-grid4">
+            {STATS.map((s, i) => (
+              <div key={s.label} className="s-statCard" style={{ animationDelay: `${i * 0.1}s` }}>
+                <div className="s-statValue" style={{ color: '#5B8FE8' }}>
+                  {s.value}
                 </div>
-              ))}
-            </div>
+                <div className="s-statLabel">{s.label}</div>
+                <div className="s-statSub">{s.trend}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Today's schedule */}
-          <div className="sd__card fade-up fade-up-5">
-            <h3 className="sd__card-title">Today's Schedule</h3>
-            <div className="sd__schedule">
-              {UPCOMING.map((u, i) => (
-                <div key={i} className="sd__schedule-item">
-                  <span className="sd__schedule-time">{u.time}</span>
-                  <div className="sd__schedule-body">
-                    <div className="sd__schedule-label">{u.label}</div>
-                    <span className={`sd__schedule-tag sd__schedule-tag--${u.tag}`}>{u.tag}</span>
+          {/* Bookings Grid */}
+          <div className="s-bookings">
+            <div className="s-sectionHead">
+              <div>
+                <div className="s-sectionHead__title">Recent Bookings</div>
+                <div className="s-sectionHead__sub">Latest booking activities</div>
+              </div>
+            </div>
+            {filtered.slice(0, 4).map((b, i) => (
+              <div key={b.id} className="s-bookingCard">
+                <div className="s-bookingCard__top">
+                  <div>
+                    <div className="s-bookingCard__title">{b.party}</div>
+                    <div className="s-bookingCard__sub">{b.client} · {b.date} · {b.venue}</div>
                   </div>
+                  <span className="s-badge s-badge--blue">{b.status}</span>
                 </div>
-              ))}
-            </div>
+                <div className="s-progress">
+                  <div className="s-progress__inner" style={{ width: '75%', background: '#5B8FE8' }} />
+                </div>
+                <div className="s-bookingCard__bottom">
+                  <button className="s-linkBtn">View Details →</button>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Quick actions */}
-          <div className="sd__card fade-up fade-up-5">
-            <h3 className="sd__card-title">Quick Actions</h3>
-            <div className="sd__actions">
-              <Link to="/sales/new"       className="sd__action-btn">＋ New Enquiry</Link>
-              <Link to="/sales/calendar"  className="sd__action-btn">▦ Venue Calendar</Link>
-              <Link to="/finance/ledger"  className="sd__action-btn">◎ Payment Ledger</Link>
-              <Link to="/admin/reports"   className="sd__action-btn">▣ Run Report</Link>
+          {/* Alerts Section */}
+          <div className="s-sectionHead">
+            <div>
+              <div className="s-sectionHead__title">Notifications</div>
+              <div className="s-sectionHead__sub">Important updates</div>
             </div>
           </div>
-
-        </aside>
+          <div className="s-alertGrid">
+            <div className="s-alert s-alert--blue">
+              <div className="s-alert__icon">!</div>
+              <div className="s-alert__text">
+                <div className="s-alert__title">Follow-up Required</div>
+                <div className="s-alert__desc">2 bookings need follow-up calls</div>
+              </div>
+            </div>
+            <div className="s-alert s-alert--blue">
+              <div className="s-alert__icon">✓</div>
+              <div className="s-alert__text">
+                <div className="s-alert__title">New Booking</div>
+                <div className="s-alert__desc">Mehta Wedding confirmed</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

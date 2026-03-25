@@ -162,12 +162,6 @@ function Navbar({ page, setPage, onStaffLogin }) {
           onMouseLeave={e=>{ e.target.style.background='transparent'; e.target.style.borderColor='rgba(201,168,76,.35)'; }}>
           Sign In
         </button>
-        <button onClick={() => setPage('dashboard')}
-          style={{ padding:'8px 20px', background:'linear-gradient(135deg,#C9A84C,#8A6520)', color:'#080810', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', transition:'all .2s' }}
-          onMouseEnter={e=>e.target.style.transform='translateY(-2px)'}
-          onMouseLeave={e=>e.target.style.transform='translateY(0)'}>
-          Launch App →
-        </button>
       </div>
     </nav>
   );
@@ -225,16 +219,11 @@ function Hero({ setPage }) {
 
         {/* CTAs */}
         <div className="rv" style={{ display:'flex', gap:14, justifyContent:'center', marginBottom:52, transitionDelay:'.4s' }}>
-          <button onClick={() => setPage('dashboard')}
+          <button onClick={() => setPage('booking')}
             style={{ padding:'14px 32px', background:'linear-gradient(135deg,#C9A84C,#8A6520)', color:'#080810', border:'none', borderRadius:10, fontSize:15, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:8, transition:'all .2s' }}
             onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 8px 32px rgba(201,168,76,.35)'; }}
             onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; }}>
-            Start Free Trial <I d={ico.arr} s={17} />
-          </button>
-          <button style={{ padding:'14px 32px', background:'transparent', border:'1px solid rgba(201,168,76,.35)', color:'#C9A84C', borderRadius:10, fontSize:15, cursor:'pointer', display:'flex', alignItems:'center', gap:8, transition:'all .3s' }}
-            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(201,168,76,.08)'; e.currentTarget.style.borderColor='#C9A84C'; }}
-            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(201,168,76,.35)'; }}>
-            <I d={ico.cal} s={17} /> Book a Demo
+            <I d={ico.cal} s={17} /> Book Appointment
           </button>
         </div>
 
@@ -648,6 +637,11 @@ export default function LandingApp({ onModuleClick, onStaffLogin } = {}) {
   useReveal();
 
   function handleSetPage(p) {
+    if (p === 'booking') {
+      // Navigate to booking page directly
+      window.location.href = '/booking';
+      return;
+    }
     if (onModuleClick && ['sales','finance','gre','kitchen','dj','client','admin'].includes(p)) {
       onModuleClick(p);
     } else {
@@ -696,6 +690,19 @@ export default function LandingApp({ onModuleClick, onStaffLogin } = {}) {
         </>
       )}
 
+      {page === 'booking' && (
+        <>
+          <Navbar page={page} setPage={handleSetPage} />
+          <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:24 }}>
+            <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:'3rem', fontWeight:700, color:'#C9A84C' }}>
+              Booking Appointment
+            </div>
+            <div style={{ color:'#6B6858', fontSize:15 }}>Coming up next — venue calendar and booking form</div>
+            <button onClick={() => handleSetPage('landing')} style={{ padding:'12px 28px', background:'rgba(201,168,76,.1)', border:'1px solid rgba(201,168,76,.3)', color:'#C9A84C', borderRadius:10, cursor:'pointer', fontSize:13 }}>← Back to Landing</button>
+          </div>
+        </>
+      )}
+
       {['sales','finance','gre','kitchen','dj','client','admin'].includes(page) && (
         <>
           <Navbar page={page} setPage={handleSetPage} />
@@ -710,4 +717,4 @@ export default function LandingApp({ onModuleClick, onStaffLogin } = {}) {
       )}
     </div>
   );
-}
+}

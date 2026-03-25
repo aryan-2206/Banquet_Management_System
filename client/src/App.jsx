@@ -5,6 +5,9 @@ import LandingModulePage    from './pages/LandingModule';
 import LoginModal           from './pages/LoginModal';
 import useAuthStore         from './pages/finance/useAuthStore';
 
+/* ── Booking ── */
+import BookingDetail       from './pages/booking/BookingDetail';
+
 /* ── Finance ── */
 import FinanceDashboard     from './pages/finance/FinanceDashboard';
 import PaymentLedger        from './pages/finance/PaymentLedger';
@@ -137,6 +140,9 @@ export default function App() {
 
         {/* Landing */}
         <Route path="/" element={<LandingWithAuth />} />
+
+        {/* ── Booking ── */}
+        <Route path="/booking" element={<BookingDetail />} />
 
         {/* ── Finance ── */}
         <Route path="/finance" element={<ProtectedRoute role="finance"><FinanceDashboard /></ProtectedRoute>} />

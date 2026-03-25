@@ -1,98 +1,74 @@
-import React, { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import api from '../../utils/api';
 
-import StatusBadge from '../../components/shared/StatusBadge';
-import { BOOKINGS, TIER_COLORS, parseBookingDate } from './salesMock';
-import './BookingDetail.css';
+const STATUS_COLORS = {
+  enquiry: '#5B8FE8',
+  confirmed: '#5FBF8A',
+  temporary: '#9B6DE8',
+  'pending-payment': '#E8C455',
+  cancelled: '#E85555',
+  completed: '#C9A84C',
+};
 
 export default function BookingDetail() {
-  const { bookingId } = useParams();
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const booking = useMemo(() => BOOKINGS.find((b) => b.id === bookingId), [bookingId]);
+  useEffect(() => {
+    if (!id) {
+      setError('No booking ID provided');
+      setLoading(false);
+      return;
+    }
 
-  if (!booking) {
+    api.getBookings()
+      .then(res => {
+        const found = res.bookings?.find(
+          b => b._id === id || b.enquiryId === id
+        );
+        setBooking(found || null);
+        if (!found) setError('Booking not found');
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return <div style={{ padding: 48, textAlign: 'center' }}>Loading booking details…</div>;
+  }
+
+  if (error || !booking) {
     return (
-      <div className="bd-root">
-        <div className="bd-card glass">
-          <div className="bd-title">Booking not found</div>
-          <div className="bd-sub">Unknown booking id: {bookingId}</div>
-          <Link className="bd-back" to="/sales">
-            ← Back to Sales Dashboard
-          </Link>
-        </div>
+      <div style={{ padding: 48, textAlign: 'center', color: 'red' }}>
+        <p>{error || 'Booking not found.'}</p>
+        <button onClick={() => navigate('/sales')}>← Back to Sales</button>
       </div>
     );
   }
 
-  const d = parseBookingDate(booking.date);
-  const pretty = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const statusColor = STATUS_COLORS[booking.status] || '#999';
 
   return (
-    <div className="bd-root">
-      <div className="bd-card glass">
-        <div className="bd-top">
-          <div>
-            <div className="bd-kicker">Booking Details</div>
-            <div className="bd-id">{booking.id}</div>
-          </div>
-          <Link className="bd-back" to="/sales">
-            ← Back
-          </Link>
-        </div>
+    <div style={{ padding: 32 }}>
+      <button onClick={() => navigate('/sales')}>← Back</button>
 
-        <div className="bd-grid">
-          <div className="bd-field">
-            <div className="bd-label">Party</div>
-            <div className="bd-value">{booking.party}</div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Client</div>
-            <div className="bd-value">{booking.client}</div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Date</div>
-            <div className="bd-value">{pretty}</div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Venue</div>
-            <div className="bd-value">{booking.venue}</div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Pax</div>
-            <div className="bd-value">
-              {booking.pax} <span className="bd-muted">guests</span>
-            </div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Tier</div>
-            <div className="bd-value">
-              <span className="bd-tier" style={{ '--tier-color': TIER_COLORS[booking.tier] }}>
-                {booking.tier}
-              </span>
-            </div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Status</div>
-            <div className="bd-value">
-              <StatusBadge status={booking.status} dot />
-            </div>
-          </div>
-          <div className="bd-field">
-            <div className="bd-label">Manager</div>
-            <div className="bd-value">{booking.manager}</div>
-          </div>
-        </div>
+      <h1>{booking.personalDetails?.name}</h1>
+      <p>{booking.enquiryId}</p>
 
-        <div className="bd-actions">
-          <Link className="bd-action bd-action--primary" to="/sales/new">
-            + Create another booking
-          </Link>
-          <Link className="bd-action bd-action--outline" to="/sales/calendar">
-            View venue calendar
-          </Link>
-        </div>
-      </div>
+      <p>Status: <span style={{ color: statusColor }}>{booking.status}</span></p>
+
+      <h3>Client Info</h3>
+      <p>{booking.personalDetails?.email}</p>
+      <p>{booking.personalDetails?.phone}</p>
+
+      <h3>Event</h3>
+      <p>{booking.eventDetails?.eventType}</p>
+      <p>{booking.eventDetails?.venue}</p>
+      <p>{booking.eventDetails?.guests} guests</p>
     </div>
   );
 }
-

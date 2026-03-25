@@ -1,23 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 
-export default function useCounter(target, duration = 2000, start = false) {
+// Simple counter hook that animates from 0 to target
+export default function useCounter(target, duration = 2000, inView = true) {
   const [count, setCount] = useState(0);
-  const raf = useRef(null);
 
-  useEffect(() => {
-    if (!start) return;
-    let startTime = null;
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
-      setCount(Math.floor(ease * target));
-      if (progress < 1) raf.current = requestAnimationFrame(step);
-      else setCount(target);
+  // Use useState + useEffect pattern
+  const [ran, setRan] = useState(false);
+
+  if (inView && !ran) {
+    setRan(true);
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(tick);
     };
-    raf.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, duration, start]);
+    requestAnimationFrame(tick);
+  }
 
   return count;
 }

@@ -1,419 +1,216 @@
 const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
 
-// @desc    Create a new booking enquiry
-// @route   POST /api/bookings
-// @access  Public
-exports.createBooking = async (req, res) => {
+// Normalise display names → Mongoose enum slugs
+const VENUE_MAP = {
+  'grand ballroom':  'grand-ballroom',
+  'terrace garden':  'terrace-garden',
+  'crystal hall':    'crystal-hall',
+  'banquet suite a': 'banquet-suite-a',
+  'rooftop lounge':  'rooftop-lounge',
+  'garden pavilion': 'garden-pavilion',
+};
+const EVENT_MAP = {
+  'wedding reception':  'wedding',
+  'birthday party':     'birthday',
+  'anniversary party':  'anniversary',
+  'corporate event':    'corporate',
+  'conference':         'conference',
+  'other':              'other',
+};
+
+const normalizeVenue = (v = '') => {
+  if (!v) return 'grand-ballroom';
+  const slug = VENUE_MAP[v.toLowerCase()];
+  return slug || v.toLowerCase().replace(/\s+/g, '-');
+};
+
+const normalizeEventType = (e = '') => {
+  if (!e) return 'other';
+  const slug = EVENT_MAP[e.toLowerCase()];
+  // If we have a direct match, use it; else try the raw value (it may already be a slug)
+  return slug || e.toLowerCase();
+};
+
+// @desc  Create new booking enquiry
+// POST  /api/bookings
+const createBooking = async (req, res, next) => {
   try {
-    const bookingData = req.body;
+    const {
+      partyName, clientName, clientPhone, clientEmail,
+      gstNumber, companyName, alternatePhone, address,
+      date, startTime, endTime, venue, pax, eventManager, notes, eventType,
+      tier, addons,
+      subtotal, gst, total,
+      decoration, entertainment, photography,
+    } = req.body;
 
-    // Create new booking
-    const booking = new Booking(bookingData);
+    const venueSlug = normalizeVenue(venue);
+    const eventSlug = normalizeEventType(eventType);
 
-    // Calculate total cost
-    booking.calculateTotalCost();
+    // Overlap check: same venue, same date
+    const existing = await Booking.findOne({
+      'eventDetails.date': new Date(date),
+      'eventDetails.venue': venueSlug,
+      status: { $nin: ['cancelled'] },
+    });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: `${venue} is already booked on ${date}. Please choose a different date or venue.`,
+      });
+    }
 
-    // Add initial timeline entry
-    booking.timeline.push({
-      action: 'Enquiry created',
-      timestamp: new Date(),
-      details: `New booking enquiry received from ${booking.personalDetails.name}`
+    const booking = await Booking.create({
+      personalDetails: {
+        name: clientName,
+        email: clientEmail,
+        phone: clientPhone,
+        company: companyName,
+        gstNumber,
+      },
+      eventDetails: {
+        eventType: eventSlug,
+        guests: Number(pax),
+        date: new Date(date),
+        time: startTime && endTime ? `${startTime} - ${endTime}` : (startTime || ''),
+        venue: venueSlug,
+      },
+      menuSelection: {
+        catering: 'both',
+        customRequirements: [
+          tier ? `Tier: ${tier}` : '',
+          addons?.length ? `Add-ons: ${addons.join(', ')}` : '',
+          notes || '',
+        ].filter(Boolean).join('. '),
+      },
+      additionalRequirements: {
+        decoration: decoration || 'basic',
+        entertainment: entertainment || 'none',
+        photography: photography || false,
+      },
+      costEstimate: {
+        menuCost:  subtotal || 0,
+        totalCost: total    || 0,
+      },
+      status: 'enquiry',
     });
 
-    // Save booking
-    await booking.save();
+    // Also create a Payment record linked to this booking
+    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+    const advanceDeadline = new Date(Date.now() + TWO_DAYS);
+    const preEventDate    = new Date(date); preEventDate.setDate(preEventDate.getDate() - 7);
+    const postEventDate   = new Date(date); postEventDate.setDate(postEventDate.getDate() + 3);
 
-    // Populate for response
-    await booking.populate('salesManager', 'name email');
+    await Payment.create({
+      booking: booking._id,
+      bookingRef: booking.enquiryId,
+      clientName: partyName ? `${partyName} (${clientName})` : clientName,
+      clientPhone,
+      eventDate: new Date(date),
+      hall: venueSlug,
+      totalValue: total || 0,
+      status: 'temporary',
+      advanceDeadline,
+      installmentPlan: {
+        template: 'standard',
+        tranches: [
+          { label: '25% Advance (due in 48h)', pct: 25, dueDate: advanceDeadline,  amount: Math.round((total || 0) * 0.25), status: 'pending' },
+          { label: '35% Pre-event',            pct: 35, dueDate: preEventDate,     amount: Math.round((total || 0) * 0.35), status: 'pending' },
+          { label: '40% Post-event',           pct: 40, dueDate: postEventDate,    amount: Math.round((total || 0) * 0.40), status: 'pending' },
+        ],
+      },
+      auditLog: [{ action: 'BOOKING_CREATED', actor: clientName, details: `New enquiry ${booking.enquiryId} created` }],
+    });
 
     res.status(201).json({
       success: true,
-      data: booking,
-      message: 'Booking enquiry created successfully'
-    });
-  } catch (error) {
-    console.error('Create booking error:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to create booking enquiry'
-    });
-  }
-};
-
-// @desc    Get all bookings with filtering and pagination
-// @route   GET /api/bookings
-// @access  Private (Sales Manager)
-exports.getBookings = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 10,
-      status,
-      venue,
-      eventType,
-      startDate,
-      endDate,
-      search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query;
-
-    // Build query
-    const query = {};
-
-    // Status filter
-    if (status) {
-      query.status = status;
-    }
-
-    // Venue filter
-    if (venue) {
-      query['eventDetails.venue'] = venue;
-    }
-
-    // Event type filter
-    if (eventType) {
-      query['eventDetails.eventType'] = eventType;
-    }
-
-    // Date range filter
-    if (startDate || endDate) {
-      query['eventDetails.date'] = {};
-      if (startDate) {
-        query['eventDetails.date'].$gte = new Date(startDate);
-      }
-      if (endDate) {
-        query['eventDetails.date'].$lte = new Date(endDate);
-      }
-    }
-
-    // Search filter (name, email, phone, enquiryId)
-    if (search) {
-      query.$or = [
-        { 'personalDetails.name': { $regex: search, $options: 'i' } },
-        { 'personalDetails.email': { $regex: search, $options: 'i' } },
-        { 'personalDetails.phone': { $regex: search, $options: 'i' } },
-        { enquiryId: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Sort options
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Execute query
-    const bookings = await Booking.find(query)
-      .populate('salesManager', 'name email')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    // Get total count
-    const total = await Booking.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: bookings,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit))
-      }
-    });
-  } catch (error) {
-    console.error('Get bookings error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to fetch bookings'
-    });
-  }
-};
-
-// @desc    Get single booking by ID
-// @route   GET /api/bookings/:id
-// @access  Private
-exports.getBooking = async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('salesManager', 'name email')
-      .populate('notes');
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: booking
-    });
-  } catch (error) {
-    console.error('Get booking error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to fetch booking'
-    });
-  }
-};
-
-// @desc    Update booking
-// @route   PUT /api/bookings/:id
-// @access  Private
-exports.updateBooking = async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id);
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    // Update booking data
-    Object.assign(booking, req.body);
-
-    // Recalculate cost if menu or venue changed
-    if (req.body.eventDetails?.venue || req.body.menuSelection) {
-      booking.calculateTotalCost();
-    }
-
-    // Add timeline entry for update
-    booking.timeline.push({
-      action: 'Booking updated',
-      timestamp: new Date(),
-      user: req.user?.id,
-      details: 'Booking details were modified'
-    });
-
-    await booking.save();
-
-    await booking.populate('salesManager', 'name email');
-
-    res.json({
-      success: true,
-      data: booking,
-      message: 'Booking updated successfully'
-    });
-  } catch (error) {
-    console.error('Update booking error:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to update booking'
-    });
-  }
-};
-
-// @desc    Update booking status
-// @route   PATCH /api/bookings/:id/status
-// @access  Private
-exports.updateBookingStatus = async (req, res) => {
-  try {
-    const { status, notes } = req.body;
-
-    const booking = await Booking.findById(req.params.id);
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    const oldStatus = booking.status;
-    booking.status = status;
-
-    // Add timeline entry
-    booking.timeline.push({
-      action: `Status changed to ${status}`,
-      timestamp: new Date(),
-      user: req.user?.id,
-      details: notes || `Status updated from ${oldStatus} to ${status}`
-    });
-
-    // Set follow-up dates based on status
-    if (status === 'confirmed') {
-      booking.nextFollowUp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 1 week later
-    } else if (status === 'enquiry') {
-      booking.nextFollowUp = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days later
-    }
-
-    await booking.save();
-
-    await booking.populate('salesManager', 'name email');
-
-    res.json({
-      success: true,
-      data: booking,
-      message: `Booking status updated to ${status}`
-    });
-  } catch (error) {
-    console.error('Update status error:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to update booking status'
-    });
-  }
-};
-
-// @desc    Assign sales manager to booking
-// @route   PATCH /api/bookings/:id/assign
-// @access  Private (Admin)
-exports.assignSalesManager = async (req, res) => {
-  try {
-    const { salesManagerId } = req.body;
-
-    const booking = await Booking.findById(req.params.id);
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    booking.salesManager = salesManagerId;
-
-    // Add timeline entry
-    booking.timeline.push({
-      action: 'Sales manager assigned',
-      timestamp: new Date(),
-      user: req.user?.id,
-      details: `Assigned to sales manager: ${salesManagerId}`
-    });
-
-    await booking.save();
-
-    await booking.populate('salesManager', 'name email');
-
-    res.json({
-      success: true,
-      data: booking,
-      message: 'Sales manager assigned successfully'
-    });
-  } catch (error) {
-    console.error('Assign manager error:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to assign sales manager'
-    });
-  }
-};
-
-// @desc    Get booking statistics
-// @route   GET /api/bookings/stats
-// @access  Private
-exports.getBookingStats = async (req, res) => {
-  try {
-    const stats = await Booking.getBookingStats();
-
-    // Get additional stats
-    const totalBookings = await Booking.countDocuments();
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    const monthlyBookings = await Booking.countDocuments({
-      createdAt: { $gte: thisMonth }
-    });
-
-    const upcomingEvents = await Booking.countDocuments({
-      'eventDetails.date': { $gte: new Date() },
-      status: { $in: ['confirmed', 'pending-payment'] }
-    });
-
-    res.json({
-      success: true,
-      data: {
-        ...stats,
-        totalBookings,
-        monthlyBookings,
-        upcomingEvents
-      }
-    });
-  } catch (error) {
-    console.error('Get stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to fetch booking statistics'
-    });
-  }
-};
-
-// @desc    Delete booking
-// @route   DELETE /api/bookings/:id
-// @access  Private (Admin)
-exports.deleteBooking = async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id);
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    await Booking.findByIdAndDelete(req.params.id);
-
-    res.json({
-      success: true,
-      message: 'Booking deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete booking error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to delete booking'
-    });
-  }
-};
-
-// @desc    Get venue availability
-// @route   GET /api/bookings/availability
-// @access  Public
-exports.getVenueAvailability = async (req, res) => {
-  try {
-    const { venue, startDate, endDate } = req.query;
-
-    if (!venue || !startDate || !endDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Venue, start date, and end date are required'
-      });
-    }
-
-    const bookings = await Booking.find({
-      'eventDetails.venue': venue,
-      'eventDetails.date': {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+      booking: {
+        id: booking._id,
+        enquiryId: booking.enquiryId,
+        status: booking.status,
+        advanceDeadline,
       },
-      status: { $in: ['confirmed', 'pending-payment'] }
-    }).select('eventDetails.date eventDetails.time enquiryId personalDetails.name');
-
-    res.json({
-      success: true,
-      data: bookings
+      message: `Enquiry ${booking.enquiryId} created. Advance payment required within 48 hours to secure the booking.`,
     });
-  } catch (error) {
-    console.error('Get availability error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Failed to fetch venue availability'
-    });
+  } catch (err) {
+    next(err);
   }
 };
+
+// @desc  Get all bookings (Sales / Finance view)
+// GET   /api/bookings
+const getBookings = async (req, res, next) => {
+  try {
+    const { status, venue, date, page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (status) query.status = status;
+    if (venue) query['eventDetails.venue'] = venue;
+    if (date) {
+      const d = new Date(date);
+      query['eventDetails.date'] = { $gte: d, $lt: new Date(d.getTime() + 86400000) };
+    }
+
+    const bookings = await Booking.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .lean();
+
+    const total = await Booking.countDocuments(query);
+    res.json({ success: true, count: bookings.length, total, bookings });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc  Get single booking
+// GET   /api/bookings/:id
+const getBooking = async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.id).lean();
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    res.json({ success: true, booking });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc  Update booking status
+// PATCH /api/bookings/:id/status
+const updateStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { status, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    res.json({ success: true, booking });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc  Check venue availability
+// GET   /api/bookings/check-availability
+const checkAvailability = async (req, res, next) => {
+  try {
+    const { date, venue } = req.query;
+    if (!date || !venue) return res.status(400).json({ success: false, message: 'date and venue are required' });
+
+    const d = new Date(date);
+    const conflict = await Booking.findOne({
+      'eventDetails.venue': venue,
+      'eventDetails.date': { $gte: d, $lt: new Date(d.getTime() + 86400000) },
+      status: { $nin: ['cancelled'] },
+    }).select('enquiryId status personalDetails.name');
+
+    res.json({ success: true, available: !conflict, conflict: conflict || null });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { createBooking, getBookings, getBooking, updateStatus, checkAvailability };

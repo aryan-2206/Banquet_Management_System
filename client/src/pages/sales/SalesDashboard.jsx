@@ -103,9 +103,6 @@ export default function SalesDashboard() {
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
             </div>
-            <button className="sd-hero__cta" onClick={() => navigate('/sales/new')}>
-              + New Booking
-            </button>
           </div>
 
           {/* Stats */}

@@ -34,7 +34,7 @@ const BookingSchema = new mongoose.Schema({
     eventType: {
       type: String,
       required: true,
-      enum: ['wedding', 'corporate', 'birthday', 'anniversary', 'conference', 'reception', 'other', 'Corporate Event', 'Wedding Reception', 'Birthday Party', 'Anniversary Party', 'Conference']
+      // Normalized by bookingController: wedding, corporate, birthday, anniversary, conference, reception, other
     },
     guests: {
       type: Number,
@@ -52,7 +52,7 @@ const BookingSchema = new mongoose.Schema({
     venue: {
       type: String,
       required: true,
-      enum: ['grand-ballroom', 'terrace-garden', 'crystal-hall', 'banquet-suite-a', 'rooftop-lounge']
+      // Normalized by bookingController: grand-ballroom, terrace-garden, crystal-hall, banquet-suite-a, rooftop-lounge, garden-pavilion
     }
   },
 
@@ -193,7 +193,7 @@ const BookingSchema = new mongoose.Schema({
 });
 
 // Generate unique enquiry ID before saving and handle other updates
-BookingSchema.pre('save', function(next) {
+BookingSchema.pre('save', async function() {
   // Generate enquiry ID for new bookings
   if (this.isNew && !this.enquiryId) {
     const date = new Date();
@@ -214,8 +214,6 @@ BookingSchema.pre('save', function(next) {
       details: `Booking status updated from ${this._modifiedPaths?.status || 'new'} to ${this.status}`
     });
   }
-  
-  next();
 });
 
 // Index for better search performance

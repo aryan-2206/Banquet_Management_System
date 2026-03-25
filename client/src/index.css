@@ -204,11 +204,11 @@ body:has(button:hover) #cursor-ring { width: 56px; height: 56px; border-color: v
 
 /* ── SECTION REVEAL (IntersectionObserver toggled) ── */
 .reveal { opacity: 0; transform: translateY(36px); transition: opacity .7s ease, transform .7s ease; }
-.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal.reveal-visible, .reveal.visible { opacity: 1 !important; transform: translateY(0) !important; }
 .reveal-left  { opacity: 0; transform: translateX(-36px); transition: opacity .7s ease, transform .7s ease; }
-.reveal-left.visible  { opacity: 1; transform: translateX(0); }
+.reveal-left.reveal-visible, .reveal-left.visible  { opacity: 1 !important; transform: translateX(0) !important; }
 .reveal-right { opacity: 0; transform: translateX(36px);  transition: opacity .7s ease, transform .7s ease; }
-.reveal-right.visible { opacity: 1; transform: translateX(0); }
+.reveal-right.reveal-visible, .reveal-right.visible { opacity: 1 !important; transform: translateX(0) !important; }
 
 /* ── STATUS BADGES ── */
 .badge { display:inline-flex; align-items:center; gap:6px; padding: 4px 12px; border-radius:99px; font-size:.72rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import Cursor from '../components/shared/Cursor';
 import ParticleField from '../components/shared/ParticleField';
 import useReveal from '../hooks/useReveal';
 import useCounter from '../hooks/useCounter';
-import DJLiveView from './dj/DJLiveView';
 
 /* ─── tiny icons as inline SVG components ─── */
 const Icon = ({ d, size = 20, className = '' }) => (
@@ -195,8 +195,29 @@ function Hero() {
           powered by real-time intelligence and WhatsApp-native workflows.
         </p>
 
+        {/* ── CTA Buttons ── */}
+        <div className="animate-fade-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+          <Link
+            to="/sales/new"
+            className="btn-gold px-8 py-4 text-base rounded-xl shadow-lg"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 700, letterSpacing: '0.04em' }}
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Book Your Event</span>
+          </Link>
+          <button
+            onClick={() => document.getElementById('modules')?.scrollIntoView({ behavior: 'smooth' })}
+            className="btn-outline-gold px-8 py-4 text-base rounded-xl"
+            style={{ fontSize: 15 }}
+          >
+            View Platform →
+          </button>
+        </div>
+
         {/* Trust strip */}
-        <div className="animate-fade-up delay-800 flex flex-wrap justify-center gap-6 mt-10">
+        <div className="animate-fade-up delay-800 flex flex-wrap justify-center gap-6 mt-2">
           {[
             { icon: ICONS.shield, label: 'GST Compliant' },
             { icon: ICONS.whatsapp, label: 'WhatsApp Native' },
@@ -495,9 +516,98 @@ function WorkflowSection() {
   );
 }
 
-/* ─── MODULES GRID (role cards) ─── */
-function ModulesSection({ onModuleClick }) {
+/* \u2500\u2500\u2500 MODULE LOGIN MODAL \u2500\u2500\u2500 */
+function ModuleLoginModal({ module: m, onClose, onEnter }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Demo credentials per role
+  const DEMO_CREDS = {
+    sales:   { user: 'sales@banquet.com',   pass: 'sales123',   label: 'Sales Manager' },
+    finance: { user: 'finance@banquet.com', pass: 'finance123', label: 'Finance Manager' },
+    kitchen: { user: 'kitchen@banquet.com', pass: 'kitchen123', label: 'Kitchen Head' },
+    gre:     { user: 'gre@banquet.com',     pass: 'gre123',     label: 'GRE Officer' },
+    dj:      { user: 'dj@banquet.com',      pass: 'dj123',      label: 'DJ / Live Artist' },
+    client:  { user: 'client@banquet.com',  pass: 'client123',  label: 'Client' },
+    admin:   { user: 'admin@banquet.com',   pass: 'admin123',   label: 'Admin' },
+  };
+
+  const cred = DEMO_CREDS[m.id] || { pass: 'demo123', label: m.role };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    await new Promise(r => setTimeout(r, 600)); // simulate auth
+    if (password === cred.pass || password === 'demo') {
+      onEnter(m.id);
+    } else {
+      setError(`Incorrect password. Demo: "${cred.pass}"`);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(8,8,16,0.85)', backdropFilter: 'blur(12px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{ background: '#0E0E1A', border: `1px solid ${m.color}30`, borderRadius: 20, padding: '36px 32px', width: '100%', maxWidth: 400, boxShadow: `0 0 80px ${m.color}15` }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: `${m.color}15`, border: `1px solid ${m.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={m.color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d={m.icon} />
+            </svg>
+          </div>
+          <div>
+            <div style={{ color: m.color, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 2 }}>{m.badge} · Role Access</div>
+            <div style={{ color: '#F5F0E8', fontWeight: 600, fontSize: 15 }}>{m.role}</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4A4840', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Demo hint */}
+        <div style={{ background: `${m.color}08`, border: `1px solid ${m.color}20`, borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: '#9D9880' }}>
+          <span style={{ color: m.color, fontWeight: 600 }}>Demo: </span>
+          <code style={{ color: '#C9A84C' }}>{cred.pass}</code>
+        </div>
+
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', color: '#9D9880', fontSize: 11, marginBottom: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Password</label>
+            <input
+              type="password"
+              autoFocus
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(''); }}
+              placeholder={`Enter password for ${cred.label}`}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${error ? '#E85555' : 'rgba(201,168,76,0.2)'}`, borderRadius: 10, padding: '12px 14px', color: '#F5F0E8', fontSize: 14, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+              onFocus={e => e.target.style.borderColor = m.color}
+              onBlur={e => e.target.style.borderColor = error ? '#E85555' : 'rgba(201,168,76,0.2)'}
+            />
+            {error && <p style={{ color: '#E85555', fontSize: 12, marginTop: 6 }}>{error}</p>}
+          </div>
+
+          <button
+            type="submit"
+            disabled={!password || loading}
+            style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: loading || !password ? 'rgba(201,168,76,0.15)' : `linear-gradient(135deg, ${m.color}, ${m.color}CC)`, color: loading || !password ? '#6B6858' : '#080810', fontWeight: 700, fontSize: 14, cursor: password && !loading ? 'pointer' : 'not-allowed', transition: 'all 0.3s', letterSpacing: '0.05em' }}
+          >
+            {loading ? 'Authenticating…' : `Enter ${m.role} →`}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* \u2500\u2500\u2500 MODULES GRID (role cards) \u2500\u2500\u2500 */
+function ModulesSection() {
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(null);
+  const [loginModal, setLoginModal] = useState(null); // holds the module being logged into
 
   const modules = [
     {
@@ -537,68 +647,83 @@ function ModulesSection({ onModuleClick }) {
     },
   ];
 
+  const handleOpen = (m) => setLoginModal(m);
+  const handleEnter = (id) => { setLoginModal(null); navigate(`/${id}`); };
+
   return (
-    <section id="modules" className="py-28 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="reveal text-[#C9A84C] text-xs tracking-[.3em] uppercase font-medium mb-4">Role-Based Modules</p>
-          <h2 className="reveal delay-100 font-['Cormorant_Garamond'] text-[clamp(2.5rem,5vw,4rem)] font-700 text-[#F5F0E8]">
-            Every role. Its own lens.
-          </h2>
-          <p className="reveal delay-200 text-[#9D9880] mt-4 max-w-lg mx-auto text-sm">
-            Seven specialised interfaces — each tailored to what that role actually needs to see and do.
-          </p>
-        </div>
+    <>
+      {loginModal && (
+        <ModuleLoginModal
+          module={loginModal}
+          onClose={() => setLoginModal(null)}
+          onEnter={handleEnter}
+        />
+      )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {modules.map((m, i) => (
-            <div key={m.id}
-              className="reveal glass glass-hover rounded-2xl p-6 group relative overflow-hidden"
-              style={{ transitionDelay: `${i * 0.05}s` }}
-              onMouseEnter={() => setHovered(m.id)}
-              onMouseLeave={() => setHovered(null)}>
+      <section id="modules" className="py-28 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="reveal text-[#C9A84C] text-xs tracking-[.3em] uppercase font-medium mb-4">Role-Based Modules</p>
+            <h2 className="reveal delay-100 font-['Cormorant_Garamond'] text-[clamp(2.5rem,5vw,4rem)] font-700 text-[#F5F0E8]">
+              Every role. Its own lens.
+            </h2>
+            <p className="reveal delay-200 text-[#9D9880] mt-4 max-w-lg mx-auto text-sm">
+              Seven specialised interfaces — each tailored to what that role actually needs to see and do.
+            </p>
+          </div>
 
-              {/* Animated bg */}
-              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl`}
-                style={{ background: `radial-gradient(ellipse at 20% 20%, ${m.color}08 0%, transparent 60%)` }} />
-
-              <div className="flex items-start justify-between mb-4">
-                <div className="icon-bg" style={{ color: m.color, background: `${m.color}12`, borderColor: `${m.color}25` }}>
-                  <Icon d={m.icon} size={20} />
-                </div>
-                <span className="text-[10px] tracking-widest text-[#4A4840] font-mono border border-[#C9A84C]/15 px-2 py-0.5 rounded">
-                  {m.badge}
-                </span>
-              </div>
-
-              <h3 className="text-[#F5F0E8] font-semibold text-sm mb-1 group-hover:text-[#E8D08A] transition-colors">{m.role}</h3>
-              <p className="text-[#6B6858] text-xs mb-4 leading-relaxed">{m.desc}</p>
-
-              {/* Screen list */}
-              <div className={`space-y-1 overflow-hidden transition-all duration-500 ${hovered === m.id ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                {m.screens.map((s) => (
-                  <div key={s} className="flex items-center gap-2 text-[#9D9880] text-xs">
-                    <div className="w-1 h-1 rounded-full" style={{ background: m.color }} />
-                    {s}
-                  </div>
-                ))}
-              </div>
-
-              {/* Enter button */}
-              <button 
-                className="mt-4 w-full py-2 rounded-lg text-xs font-medium transition-all duration-300 border opacity-0 group-hover:opacity-100"
-                style={{ color: m.color, borderColor: `${m.color}30`, background: `${m.color}08` }}
-                onClick={() => onModuleClick && onModuleClick(m.id)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {modules.map((m, i) => (
+              <div key={m.id}
+                className="reveal glass glass-hover rounded-2xl p-6 group relative overflow-hidden cursor-pointer"
+                style={{ transitionDelay: `${i * 0.05}s` }}
+                onMouseEnter={() => setHovered(m.id)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => handleOpen(m)}
               >
-                Open Module →
-              </button>
-            </div>
-          ))}
+                {/* Animated bg */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl"
+                  style={{ background: `radial-gradient(ellipse at 20% 20%, ${m.color}08 0%, transparent 60%)` }} />
+
+                <div className="flex items-start justify-between mb-4">
+                  <div className="icon-bg" style={{ color: m.color, background: `${m.color}12`, borderColor: `${m.color}25` }}>
+                    <Icon d={m.icon} size={20} />
+                  </div>
+                  <span className="text-[10px] tracking-widest text-[#4A4840] font-mono border border-[#C9A84C]/15 px-2 py-0.5 rounded">
+                    {m.badge}
+                  </span>
+                </div>
+
+                <h3 className="text-[#F5F0E8] font-semibold text-sm mb-1 group-hover:text-[#E8D08A] transition-colors">{m.role}</h3>
+                <p className="text-[#6B6858] text-xs mb-4 leading-relaxed">{m.desc}</p>
+
+                {/* Screen list (shown on hover) */}
+                <div className={`space-y-1 overflow-hidden transition-all duration-500 ${hovered === m.id ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  {m.screens.map((s) => (
+                    <div key={s} className="flex items-center gap-2 text-[#9D9880] text-xs">
+                      <div className="w-1 h-1 rounded-full" style={{ background: m.color }} />
+                      {s}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Enter button */}
+                <button
+                  className="mt-4 w-full py-2 rounded-lg text-xs font-medium transition-all duration-300 border"
+                  style={{ color: m.color, borderColor: `${m.color}30`, background: `${m.color}08` }}
+                  onClick={(e) => { e.stopPropagation(); handleOpen(m); }}
+                >
+                  Open Module →
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
+
 
 /* ─── STATS SECTION ─── */
 function StatCard({ value, suffix = '', label, sublabel, color, inView }) {
@@ -704,7 +829,6 @@ function Footer() {
 export default function LandingPage() {
   useReveal();
   const [active, setActive] = useState('home');
-  const [currentPage, setCurrentPage] = useState('landing');
 
   useEffect(() => {
     const sections = ['home','features','workflow','modules','stats'];
@@ -715,11 +839,6 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  // If DJ Live View is selected, show that component
-  if (currentPage === 'dj') {
-    return <DJLiveView onBack={() => setCurrentPage('landing')} />;
-  }
-
   return (
     <div className="min-h-screen" style={{ background: 'var(--obsidian)' }}>
       <Cursor />
@@ -729,7 +848,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <WorkflowSection />
       <USPSection />
-      <ModulesSection onModuleClick={setCurrentPage} />
+      <ModulesSection />
       <StatsSection />
       <Footer />
     </div>

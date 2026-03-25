@@ -1,28 +1,17 @@
 const express = require('express');
-const router = express.Router();
 const {
-  createBooking,
-  getBookings,
-  getBooking,
-  updateBooking,
-  updateBookingStatus,
-  assignSalesManager,
-  getBookingStats,
-  deleteBooking,
-  getVenueAvailability
+  createBooking, getBookings, getBooking, updateStatus, checkAvailability
 } = require('../controllers/bookingController');
 
-// Public routes
-router.post('/', createBooking);
-router.get('/availability', getVenueAvailability);
+const router = express.Router();
 
-// Protected routes (require authentication)
+// Public - availability check (used by booking form)
+router.get('/check-availability', checkAvailability);
+
+// Booking CRUD
+router.post('/', createBooking);
 router.get('/', getBookings);
-router.get('/stats', getBookingStats);
 router.get('/:id', getBooking);
-router.put('/:id', updateBooking);
-router.patch('/:id/status', updateBookingStatus);
-router.patch('/:id/assign', assignSalesManager);
-router.delete('/:id', deleteBooking);
+router.patch('/:id/status', updateStatus);
 
 module.exports = router;

@@ -74,7 +74,7 @@ export default function UpcomingEventCard({ event }) {
 
       {/* CTA: full width mobile, auto width md+ centered */}
       <div className="flex justify-center">
-        <button onClick={() => navigate('/client/summary')}
+        <button onClick={() => navigate(`/client/event-detail/${event.id}`, { state: { event } })}
           className="w-full md:w-auto py-3 px-8 rounded-xl font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-all duration-200 hover:brightness-110 active:scale-95 border-none"
           style={{ background:'linear-gradient(135deg,#C9A84C,#8B6520)', color:'#080810' }}>
           View Full Details <Icon d={ARROW} size={16} />

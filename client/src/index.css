@@ -1,10 +1,6 @@
-/* 1. Imports MUST come first */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Outfit:wght@300;400;500;600;700&display=swap');
-
+/* 1. Imports */
 /* 2. Tailwind Directives */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --gold: #C9A84C;
@@ -118,12 +114,11 @@ body:has(button:hover) #cursor-ring { width: 56px; height: 56px; border-color: v
   to   { --angle: 360deg; }
 }
 @keyframes particle-drift {
-  0%   { transform: translateY(0)   translateX(0)   opacity: 0; }
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
   10%  { opacity: 1; }
   90%  { opacity: 1; }
-  100% { transform: translateY(-80vh) translateX(40px) opacity: 0; }
+  100% { transform: translateY(-80vh) translateX(40px); opacity: 0; }
 }
-
 /* ── UTILITY ANIMATIONS ── */
 .animate-fade-up    { animation: fadeUp .7s cubic-bezier(.4,0,.2,1) both; }
 .animate-fade-in    { animation: fadeIn .6s ease both; }

@@ -3,6 +3,7 @@ import Cursor from '../components/shared/Cursor';
 import ParticleField from '../components/shared/ParticleField';
 import useReveal from '../hooks/useReveal';
 import useCounter from '../hooks/useCounter';
+import DJLiveView from './dj/DJLiveView';
 
 /* ─── tiny icons as inline SVG components ─── */
 const Icon = ({ d, size = 20, className = '' }) => (
@@ -89,9 +90,6 @@ function Navbar({ active, setActive }) {
         {/* CTA */}
         <div className="hidden md:flex items-center gap-3">
           <button className="btn-outline-gold px-4 py-2 text-sm">Sign In</button>
-          <button className="btn-gold px-5 py-2 text-sm" onClick={() => scrollTo('modules')}>
-            <span>Launch App →</span>
-          </button>
         </div>
 
         {/* Mobile hamburger */}
@@ -111,7 +109,6 @@ function Navbar({ active, setActive }) {
           ))}
           <div className="flex gap-3 mt-4">
             <button className="btn-outline-gold px-4 py-2 text-sm flex-1">Sign In</button>
-            <button className="btn-gold px-4 py-2 text-sm flex-1"><span>Launch App</span></button>
           </div>
         </div>
       )}
@@ -197,38 +194,6 @@ function Hero() {
           A unified command center for Sales, Finance, Kitchen, GRE & Clients —
           powered by real-time intelligence and WhatsApp-native workflows.
         </p>
-
-        {/* CTA buttons */}
-        <div className="animate-fade-up delay-400 flex flex-col sm:flex-row gap-4 justify-center mb-16">
-          <button className="btn-gold px-8 py-4 text-base font-semibold inline-flex items-center gap-2">
-            <span>Start Free Trial</span>
-            <Icon d={ICONS.arrowRight} size={18} className="relative z-10" />
-          </button>
-          <button className="btn-outline-gold px-8 py-4 text-base inline-flex items-center gap-2">
-            <Icon d={ICONS.calendar} size={18} />
-            Book a Demo
-          </button>
-        </div>
-
-        {/* Heartbeat timeline strip */}
-        <div className="animate-fade-up delay-600 w-full max-w-3xl mx-auto">
-          <div className="relative h-20 glass rounded-2xl border border-[#C9A84C]/15 overflow-hidden px-6 flex items-center">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#C9A84C]/03 to-transparent" />
-            <svg className="w-full h-12 timeline-svg" viewBox="0 0 800 60" fill="none">
-              <path d="M0,30 L60,30 L80,10 L100,50 L120,20 L140,40 L160,30
-                       L220,30 L240,5 L260,55 L280,15 L300,45 L320,30
-                       L380,30 L400,8 L420,52 L440,18 L460,42 L480,30
-                       L540,30 L560,12 L580,48 L600,22 L620,38 L640,30 L800,30"
-                stroke="#C9A84C" strokeWidth="1.5" opacity="0.7" />
-            </svg>
-            {/* Stage labels */}
-            <div className="absolute inset-0 flex items-end justify-around pb-2 pointer-events-none">
-              {['Inquiry','Blocked','Finance','Confirmed','Event','Post-Audit'].map((s,i) => (
-                <span key={s} className="text-[9px] text-[#6B5520] tracking-widest uppercase">{s}</span>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {/* Trust strip */}
         <div className="animate-fade-up delay-800 flex flex-wrap justify-center gap-6 mt-10">
@@ -531,7 +496,7 @@ function WorkflowSection() {
 }
 
 /* ─── MODULES GRID (role cards) ─── */
-function ModulesSection() {
+function ModulesSection({ onModuleClick }) {
   const [hovered, setHovered] = useState(null);
 
   const modules = [
@@ -620,8 +585,11 @@ function ModulesSection() {
               </div>
 
               {/* Enter button */}
-              <button className="mt-4 w-full py-2 rounded-lg text-xs font-medium transition-all duration-300 border opacity-0 group-hover:opacity-100"
-                style={{ color: m.color, borderColor: `${m.color}30`, background: `${m.color}08` }}>
+              <button 
+                className="mt-4 w-full py-2 rounded-lg text-xs font-medium transition-all duration-300 border opacity-0 group-hover:opacity-100"
+                style={{ color: m.color, borderColor: `${m.color}30`, background: `${m.color}08` }}
+                onClick={() => onModuleClick && onModuleClick(m.id)}
+              >
                 Open Module →
               </button>
             </div>
@@ -736,6 +704,7 @@ function Footer() {
 export default function LandingPage() {
   useReveal();
   const [active, setActive] = useState('home');
+  const [currentPage, setCurrentPage] = useState('landing');
 
   useEffect(() => {
     const sections = ['home','features','workflow','modules','stats'];
@@ -746,6 +715,11 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
+  // If DJ Live View is selected, show that component
+  if (currentPage === 'dj') {
+    return <DJLiveView onBack={() => setCurrentPage('landing')} />;
+  }
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--obsidian)' }}>
       <Cursor />
@@ -755,7 +729,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <WorkflowSection />
       <USPSection />
-      <ModulesSection />
+      <ModulesSection onModuleClick={setCurrentPage} />
       <StatsSection />
       <Footer />
     </div>

@@ -5,7 +5,6 @@ const { Server } = require('socket.io');
 const app = require('./app');
 const connectDB = require('./config/db');
 const { PORT, CORS_ORIGIN } = require('./config/env');
-
 // ── Database ────────────────────────────────────────────────
 connectDB();
 

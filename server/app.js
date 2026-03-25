@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path=require('path');
 const express = require('express');
 const cors = require('cors');
 const { CORS_ORIGIN } = require('./config/env');
@@ -14,6 +15,7 @@ const kitchenRoutes   = require('./routes/kitchen');
 const whatsappRoutes  = require('./routes/whatsapp');
 const aiRoutes        = require('./routes/ai');
 const reportRoutes    = require('./routes/reports');
+const eventGalleryRoutes=require('./routes/eventGallery');
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+//upload files statiscally
+app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 
 // ── Health check ────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -40,6 +44,7 @@ app.use('/api/kitchen',   kitchenRoutes);
 app.use('/api/whatsapp',  whatsappRoutes);
 app.use('/api/ai',        aiRoutes);
 app.use('/api/reports',   reportRoutes);
+app.use('/api/events',eventGalleryRoutes);
 
 // ── 404 handler ─────────────────────────────────────────────
 app.use((req, res) => {

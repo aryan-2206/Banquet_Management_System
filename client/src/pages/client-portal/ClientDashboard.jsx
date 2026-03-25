@@ -42,7 +42,6 @@ function HomeTab({ setTab }) {
         <PaymentSummaryWidget events={EVENTS} compact={true} />
         <GuestManagementQuickView summary={GUESTS_SUMMARY} onNavigate={setTab} compact={true} />
         <MenuSnapshotCard menu={nextEvent?.menu || []} />
-        <DocumentsVault documents={DOCUMENTS} />
         <ContactSupportCard manager={CLIENT.manager} />
       </div>
       {isPostEvent && <PostEventSection feedbackSubmitted={false} />}

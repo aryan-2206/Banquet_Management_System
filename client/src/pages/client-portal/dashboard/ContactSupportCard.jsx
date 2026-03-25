@@ -9,62 +9,45 @@ export default function ContactSupportCard({ manager, client }) {
       <div className="portal-section-label">Your Team</div>
 
       {/* ── Manager card ── */}
-      <div
-        className="flex items-center gap-4 mb-4 p-4 rounded-2xl"
-        style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)' }}
-      >
-        {/* Avatar */}
-        <div
-          className="w-12 h-12 md:w-14 md:h-14 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-base md:text-lg"
-          style={{
-            background:`${actualManager.color}20`,
-            border:`2px solid ${actualManager.color}40`,
-            color:actualManager.color
-          }}
-        >
-          {actualManager.initials}
+      <div className="mb-4 p-5 rounded-3xl flex flex-col items-center relative overflow-hidden group" style={{ background:'linear-gradient(145deg,rgba(255,255,255,0.03),rgba(18,18,31,0.6))', border:'1px solid rgba(201,168,76,0.15)', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
+        
+        {/* Animated Gold Pulse Avatar */}
+        <div className="relative mb-5 mt-2">
+          {/* Pulsing ring */}
+          <div className="absolute inset-0 rounded-full animate-ping" style={{ background: `${actualManager.color}40`, animationDuration: '3s' }}></div>
+          {/* Static outer ring */}
+          <div className="absolute inset-0 rounded-full" style={{ border: `1px solid ${actualManager.color}50`, transform: 'scale(1.2)' }}></div>
+          
+          {/* Main Avatar */}
+          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center font-bold text-xl md:text-2xl relative z-10"
+            style={{ background: `linear-gradient(135deg, ${actualManager.color}30, ${actualManager.color}10)`, border: `2px solid ${actualManager.color}`, color: actualManager.color, boxShadow:`0 0 20px ${actualManager.color}40` }}>
+            {actualManager.initials}
+          </div>
+          
+          {/* Online status dot */}
+          <div className="absolute bottom-0 right-1 md:right-2 w-4 h-4 md:w-5 md:h-5 rounded-full z-20" style={{ background: '#5FBF8A', border: '3px solid #12121F', boxShadow: '0 0 8px rgba(95,191,138,0.6)' }}></div>
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="text-sm md:text-base font-medium text-[#F5F0E8]">
-            {actualManager.name}
-          </div>
-          <div className="text-xs md:text-sm text-[#6B6858]">
-            {actualManager.role}
-          </div>
+        {/* Text Details */}
+        <div className="text-center mb-5">
+           <h3 className="font-serif text-xl md:text-2xl font-bold text-[#F5F0E8] mb-1">{actualManager.name}</h3>
+           <p className="text-[10px] md:text-xs tracking-[0.2em] font-medium uppercase" style={{ color: '#C9A84C' }}>{actualManager.role}</p>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 flex-shrink-0">
-          <a
-            href={`https://wa.me/${actualManager.wa}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 py-2 px-3 rounded-xl min-h-[44px] min-w-[44px] transition-all duration-200 hover:brightness-125"
-            style={{
-              background:'rgba(37,211,102,0.1)',
-              border:'1px solid rgba(37,211,102,0.3)',
-              color:'#25D366',
-              textDecoration:'none'
-            }}
-          >
-            <span className="text-lg leading-none">💬</span>
-            <span className="hidden lg:inline text-sm font-medium">WhatsApp</span>
+        {/* Divider */}
+        <div className="w-full h-px mb-5" style={{ background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent)' }}></div>
+
+        {/* Action Buttons */}
+        <div className="w-full grid grid-cols-2 gap-3 pb-1">
+          <a href={`https://wa.me/${actualManager.wa}`} target="_blank" rel="noreferrer"
+            className="w-full flex justify-center items-center gap-2 py-3.5 rounded-2xl text-[13px] md:text-sm font-semibold transition-all duration-300 hover:-translate-y-1"
+            style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#fff', textDecoration: 'none', boxShadow: '0 4px 15px rgba(37,211,102,0.3)' }}>
+            <span className="text-base md:text-lg">💬</span> WhatsApp
           </a>
-
-          <a
-            href={`tel:${actualManager.phone}`}
-            className="flex items-center gap-2 py-2 px-3 rounded-xl min-h-[44px] min-w-[44px] transition-all duration-200 hover:brightness-125"
-            style={{
-              background:'rgba(91,143,232,0.1)',
-              border:'1px solid rgba(91,143,232,0.3)',
-              color:'#5B8FE8',
-              textDecoration:'none'
-            }}
-          >
-            <span className="text-lg leading-none">📞</span>
-            <span className="hidden lg:inline text-sm font-medium">Call</span>
+          <a href={`tel:${actualManager.phone}`}
+            className="w-full flex justify-center items-center gap-2 py-3.5 rounded-2xl text-[13px] md:text-sm font-semibold transition-all duration-300 hover:-translate-y-1"
+            style={{ background: 'linear-gradient(135deg, #E85E9A, #E85555)', color: '#fff', textDecoration: 'none', boxShadow: '0 4px 15px rgba(232,85,85,0.3)' }}>
+            <span className="text-base md:text-lg">📞</span> Call
           </a>
         </div>
       </div>

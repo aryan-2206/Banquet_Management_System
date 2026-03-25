@@ -8,6 +8,25 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+
     <script type="module" src="/src/main.jsx"></script>
+
+    <script>
+      const dot = document.getElementById('cursor-dot');
+      const ring = document.getElementById('cursor-ring');
+
+      window.addEventListener('mousemove', (e) => {
+        dot.style.left = e.clientX + 'px';
+        dot.style.top = e.clientY + 'px';
+        
+        ring.animate({
+          left: e.clientX + 'px',
+          top: e.clientY + 'px'
+        }, { duration: 500, fill: "forwards" });
+      });
+    </script>
   </body>
 </html>

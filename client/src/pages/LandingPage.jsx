@@ -87,9 +87,8 @@ function Navbar({ active, setActive }) {
           ))}
         </div>
 
-        {/* CTA */}
+        {/* CTA (Removed Sign In) */}
         <div className="hidden md:flex items-center gap-3">
-          <button className="btn-outline-gold px-4 py-2 text-sm">Sign In</button>
         </div>
 
         {/* Mobile hamburger */}
@@ -108,7 +107,6 @@ function Navbar({ active, setActive }) {
             </button>
           ))}
           <div className="flex gap-3 mt-4">
-            <button className="btn-outline-gold px-4 py-2 text-sm flex-1">Sign In</button>
           </div>
         </div>
       )}

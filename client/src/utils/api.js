@@ -20,6 +20,7 @@ export const api = {
   recordPayment: (id, body)       => request(`/payments/${id}/record`, { method: 'POST', body: JSON.stringify(body) }),
   confirmBooking: (id)            => request(`/payments/${id}/confirm`, { method: 'PATCH' }),
   updateInstallmentPlan: (id, plan) => request(`/payments/${id}/installment-plan`, { method: 'PUT', body: JSON.stringify({ installmentPlan: plan }) }),
+  toggleTranche: (id, trancheIdx) => request(`/payments/${id}/tranche/${trancheIdx}/toggle`, { method: 'PATCH' }),
 
   // Auth
   login: (body)                   => request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),

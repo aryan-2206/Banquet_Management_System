@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import api from '../../utils/api';
+import { io } from 'socket.io-client';
 
 const mkLog = (action, actor, prev, next, meta = {}) => ({
   id: `LOG-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
   action, actor, timestamp: new Date().toISOString(),
   previousState: prev, newState: next, ...meta,
 });
+
+let socketInstance = null;
 
 const useFinanceStore = create((set, get) => ({
   bookings: [], // This will hold Payment objects from backend
@@ -141,6 +144,49 @@ const useFinanceStore = create((set, get) => ({
 
   toggleReminderEnabled: () =>
     set((s) => ({ reminderSettings: { ...s.reminderSettings, enabled: !s.reminderSettings.enabled } })),
+
+  /** TOGGLE_TRANCHE */
+  toggleTranche: async (bookingId, trancheIdx) => {
+    try {
+      const res = await api.toggleTranche(bookingId, trancheIdx);
+      if (res.success && res.payment) {
+        set((s) => {
+          const formatted = { 
+            ...res.payment, 
+            id: res.payment._id,
+            eventDate: new Date(res.payment.eventDate).toLocaleDateString('en-IN'),
+            hall: res.payment.hall.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          };
+          const updatedBookings = s.bookings.map(b => b.id === bookingId ? formatted : b);
+          return {
+            bookings: updatedBookings,
+            auditLog: [mkLog('TOGGLE_TRANCHE', 'Finance Manager', null, res.payment.status, { bookingId, trancheIdx }), ...s.auditLog],
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Toggle tranche failed:', err);
+      throw err;
+    }
+  },
+
+  initSocket: () => {
+    if (!socketInstance) {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      socketInstance = io(API_BASE.replace('/api', ''));
+      socketInstance.on('payment:updated', (data) => {
+        console.log('Socket payment updated:', data);
+        get().fetchPayments();
+      });
+    }
+  },
+
+  cleanupSocket: () => {
+    if (socketInstance) {
+      socketInstance.disconnect();
+      socketInstance = null;
+    }
+  }
 }));
 
 export default useFinanceStore;

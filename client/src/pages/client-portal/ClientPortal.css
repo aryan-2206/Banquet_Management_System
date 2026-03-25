@@ -54,3 +54,29 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ── Antigravity Floating Animations ────────────────────────────────── */
+@keyframes antiGravityFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(-0.2deg);
+    box-shadow: 0 4px 15px rgba(201, 168, 76, 0.02);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.4deg);
+    box-shadow: 0 15px 35px rgba(201, 168, 76, 0.15);
+  }
+}
+
+.portal-grid-home .portal-card {
+  animation: antiGravityFloat alternate infinite;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+/* Stagger speeds and delays for an independent zero-gravity feel */
+.portal-grid-home .portal-card:nth-child(1) { animation-duration: 6.5s; animation-delay: 0s; }
+.portal-grid-home .portal-card:nth-child(2) { animation-duration: 7.2s; animation-delay: -1.5s; }
+.portal-grid-home .portal-card:nth-child(3) { animation-duration: 5.8s; animation-delay: -3.2s; }
+.portal-grid-home .portal-card:nth-child(4) { animation-duration: 8.1s; animation-delay: -0.8s; }
+.portal-grid-home .portal-card:nth-child(5) { animation-duration: 6.9s; animation-delay: -4.5s; }
+.portal-grid-home .portal-card:nth-child(6) { animation-duration: 7.6s; animation-delay: -2.1s; }

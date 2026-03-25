@@ -3,6 +3,13 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const errorHandler = require("./middleware/errorHandler");
+
+const eventRoutes     = require("./routes/eventRoutes");
+const dishRoutes      = require("./routes/dishRoutes");
+const prepQueueRoutes = require("./routes/prepQueueRoutes");
+const stockRoutes     = require("./routes/stockRoutes");
+const wasteLogRoutes  = require("./routes/wasteLogRoutes");
 
 // Import only booking routes for now
 const bookingRoutes = require('./routes/bookings');
@@ -38,6 +45,11 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/bookings', bookingRoutes);
+app.use("/api/events",     eventRoutes);
+app.use("/api/dishes",     dishRoutes);
+app.use("/api/prep-queue", prepQueueRoutes);
+app.use("/api/stock",      stockRoutes);
+app.use("/api/waste-logs", wasteLogRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

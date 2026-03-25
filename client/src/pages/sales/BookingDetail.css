@@ -1,0 +1,131 @@
+.bd-root {
+  min-height: 100vh;
+  background: var(--obsidian, #080810);
+  padding: 28px;
+  color: #F5F0E8;
+}
+
+.bd-card {
+  max-width: 1100px;
+  margin: 0 auto;
+  border-radius: 22px;
+  padding: 16px 16px;
+  border: 1px solid rgba(201,168,76,.15);
+  background: rgba(255,255,255,.02);
+}
+
+.bd-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.bd-kicker {
+  color: rgba(201,168,76,.95);
+  font-weight: 900;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.bd-id {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-weight: 900;
+  color: #E8D08A;
+  font-size: 18px;
+}
+
+.bd-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(201,168,76,.22);
+  background: rgba(201,168,76,.06);
+  color: #E8D08A;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.bd-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.bd-field {
+  border: 1px solid rgba(201,168,76,.10);
+  background: rgba(255,255,255,.015);
+  border-radius: 16px;
+  padding: 12px 12px;
+}
+
+.bd-label {
+  color: rgba(245,240,232,.6);
+  font-weight: 900;
+  font-size: 12px;
+  margin-bottom: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.bd-value {
+  font-weight: 900;
+  color: rgba(245,240,232,.9);
+  font-size: 14px;
+}
+
+.bd-muted {
+  color: rgba(245,240,232,.6);
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.bd-tier {
+  color: var(--tier-color, #C9A84C);
+}
+
+.bd-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.bd-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.bd-action--primary {
+  background: linear-gradient(135deg, #C9A84C, #8A6520);
+  color: #080810;
+}
+
+.bd-action--outline {
+  border: 1px solid rgba(201,168,76,.25);
+  background: rgba(255,255,255,.02);
+  color: #E8D08A;
+}
+
+@media (max-width: 920px) {
+  .bd-grid {
+    grid-template-columns: 1fr;
+  }
+  .bd-actions {
+    justify-content: flex-start;
+  }
+}
+

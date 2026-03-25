@@ -31,7 +31,6 @@ import StaffAssignment      from './pages/admin/StaffAssignment';
 /* ── Kitchen ── */
 import KitchenDashboard     from './pages/kitchen/KitchenDashboard';
 import MenuManifest         from './pages/kitchen/MenuManifest';
-import PrepTimeline         from './pages/kitchen/PrepTimeline';
 import WasteLogger          from './pages/kitchen/WasteLogger';
 
 /* ── Sales ── */
@@ -166,7 +165,6 @@ export default function App() {
         {/* ── Kitchen ── */}
         <Route path="/kitchen" element={<ProtectedRoute role="kitchen|admin"><KitchenDashboard /></ProtectedRoute>} />
         <Route path="/kitchen/menu" element={<ProtectedRoute role="kitchen|admin"><MenuManifest /></ProtectedRoute>} />
-        <Route path="/kitchen/prep" element={<ProtectedRoute role="kitchen|admin"><PrepTimeline /></ProtectedRoute>} />
         <Route path="/kitchen/waste" element={<ProtectedRoute role="kitchen|admin"><WasteLogger /></ProtectedRoute>} />
 
         {/* ── Sales ── */}

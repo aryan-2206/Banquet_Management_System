@@ -6,14 +6,6 @@ const app = require('./app');
 const connectDB = require('./config/db');
 const { PORT, CORS_ORIGIN } = require('./config/env');
 
-// Routes
-const bookingRoutes   = require('./routes/bookingRoutes');
-const eventRoutes     = require('./routes/eventRoutes');
-const dishRoutes      = require('./routes/dishRoutes');
-const prepQueueRoutes = require('./routes/prepQueueRoutes');
-const stockRoutes     = require('./routes/stockRoutes');
-const wasteLogRoutes  = require('./routes/wasteLogRoutes');
-
 // ── Database ────────────────────────────────────────────────
 connectDB();
 
@@ -35,13 +27,6 @@ require('./sockets/kitchenSocket')(io);
 // Make io accessible in routes/controllers
 app.set('io', io);
 
-// ── API routes ─────────────────────────────────────────────
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/dishes', dishRoutes);
-app.use('/api/prep-queue', prepQueueRoutes);
-app.use('/api/stock', stockRoutes);
-app.use('/api/waste-logs', wasteLogRoutes);
 
 // ── Auto-release cron (every 15 min) ───────────────────────
 const cron = require('node-cron');

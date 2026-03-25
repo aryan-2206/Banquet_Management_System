@@ -25,7 +25,7 @@ export default function PostEventSection({ feedbackSubmitted }) {
           <h3 className="font-serif text-xl md:text-2xl text-[#F5F0E8] mb-2">How was your event?</h3>
           <p className="text-sm text-[#9D9880] mb-4 max-w-sm mx-auto">A quick review helps us serve you better on your next celebration.</p>
           <div className="flex justify-center">
-            <button onClick={() => navigate('/portal/feedback')}
+            <button onClick={() => navigate('/client/feedback')}
               className="py-3 px-8 rounded-xl font-semibold text-sm text-white cursor-pointer border-none transition-all duration-200 hover:brightness-110 min-h-[44px]"
               style={{ background:'linear-gradient(135deg,#E85E9A,#9B3DAA)' }}>
               Leave Feedback →

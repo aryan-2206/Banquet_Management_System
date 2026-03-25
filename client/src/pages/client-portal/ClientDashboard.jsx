@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CLIENT, EVENTS, NOTIFICATIONS, DOCUMENTS, GUESTS_SUMMARY, daysUntil } from './dashboard/mockData';
+import '../client-portal/ClientPortal.css';
 import HeroGreeting             from './dashboard/HeroGreeting';
 import UpcomingEventCard        from './dashboard/UpcomingEventCard';
 import AllEventsTimeline        from './dashboard/AllEventsTimeline';
@@ -27,13 +28,19 @@ const TABS = [
 ];
 
 function HomeTab({ setTab }) {
+  function handleQuickAction(action) {
+    // Map quick-action IDs to tab IDs
+    const tabMap = { payments: 'payments', guests: 'guests', menu: 'events', support: 'home' };
+    setTab(tabMap[action] || 'home');
+  }
+
   return (
-    <div className="space-y-6 animate-[fadeUp_0.4s_ease_both]">
-      <HeroGreeting client={CLIENT} nextEvent={nextEvent} onNavigate={setTab} />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <HeroGreeting client={CLIENT} nextEvent={nextEvent} onNavigate={setTab} onQuickAction={handleQuickAction} />
+      <div className="portal-grid-home">
         <UpcomingEventCard event={nextEvent} onNavigate={setTab} />
-        <PaymentSummaryWidget events={EVENTS} />
-        <GuestManagementQuickView summary={GUESTS_SUMMARY} onNavigate={setTab} />
+        <PaymentSummaryWidget events={EVENTS} compact={true} />
+        <GuestManagementQuickView summary={GUESTS_SUMMARY} onNavigate={setTab} compact={true} />
         <MenuSnapshotCard menu={nextEvent?.menu || []} />
         <DocumentsVault documents={DOCUMENTS} />
         <ContactSupportCard manager={CLIENT.manager} />

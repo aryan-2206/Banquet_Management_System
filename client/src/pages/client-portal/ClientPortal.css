@@ -1,0 +1,56 @@
+/* ── Shared Client Portal Design System ─────────────────────────────────
+   These classes are used by all ClientPortal sub-components.
+   Import this file in ClientDashboard.jsx so they're always available.
+──────────────────────────────────────────────────────────────────────── */
+
+/* ── Card container ─────────────────────────────────────────────────── */
+.portal-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(201, 168, 76, 0.12);
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  margin-bottom: 0;           /* Grid gap handles spacing, not margin */
+  backdrop-filter: blur(16px);
+  overflow: hidden;            /* Prevents any inner content from overflowing the card */
+  box-sizing: border-box;
+  min-width: 0;               /* Prevents grid blowout */
+}
+
+/* ── Section label (small caps header inside a card) ────────────────── */
+.portal-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(201, 168, 76, 0.8);
+  margin-bottom: 0.875rem;
+}
+
+/* ── Full-page portal layout shell ──────────────────────────────────── */
+.portal-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(201,168,76,0.07) 0%, transparent 60%),
+    #080810;
+  color: #F5F0E8;
+  font-family: 'Outfit', 'DM Sans', sans-serif;
+}
+
+/* ── Responsive grid helpers used by ClientDashboard grid ───────────── */
+.portal-grid-home {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .portal-grid-home {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .portal-grid-home {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

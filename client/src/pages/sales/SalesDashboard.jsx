@@ -1,204 +1,243 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import StatusBadge from '../../components/shared/StatusBadge';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './SalesDashboard.css';
 
-/* ─── Mock data (replace with API calls) ─────────────────────────── */
+/* ─── Mock data ───────────────────────────────────────────── */
 const STATS = [
-  { label: 'Active Bookings',  value: 24,      unit: '',   trend: '+3 this week',  up: true  },
-  { label: 'Revenue Pipeline', value: '₹18.4L', unit: '',  trend: '+12% vs last month', up: true },
-  { label: 'Pending Enquiries',value: 7,       unit: '',   trend: '2 need follow-up', up: false },
-  { label: 'Avg. Pax / Event', value: 280,     unit: 'pax', trend: 'Target: 300',  up: null  },
-];
-
-const PIPELINE = [
-  { stage: 'New Enquiry',   count: 7,  value: '₹4.2L', color: '#C9A96E' },
-  { stage: 'Menu Pending',  count: 5,  value: '₹3.8L', color: '#A07840' },
-  { stage: 'Finance Review',count: 4,  value: '₹5.1L', color: '#6B7C6E' },
-  { stage: 'Confirmed',     count: 8,  value: '₹5.3L', color: '#3A7A6E' },
+  { label: 'Active Bookings',   value: '24',    trend: '+3 this week' },
+  { label: 'Revenue Pipeline',  value: '₹18.4L', trend: '+12% vs last month' },
+  { label: 'Pending Enquiries', value: '7',     trend: '2 need follow-up' },
+  { label: 'Avg Pax / Event',   value: '280',   trend: 'Target: 300 pax' },
 ];
 
 const BOOKINGS = [
-  {
-    id: 'BK-2601', party: 'Mehta Wedding',  client: 'Rakesh Mehta',
-    date: '14 Jul 2026', venue: 'Grand Ballroom', pax: 450, tier: 'Elite',
-    status: 'confirmed', manager: 'Priya S.',
-  },
-  {
-    id: 'BK-2598', party: 'Sharma Birthday', client: 'Neha Sharma',
-    date: '18 Jul 2026', venue: 'Terrace Garden', pax: 120, tier: 'Premium',
-    status: 'enquiry', manager: 'Aryan D.',
-  },
-  {
-    id: 'BK-2593', party: 'Kapoor Reception', client: 'Vijay Kapoor',
-    date: '22 Jul 2026', venue: 'Crystal Hall',   pax: 320, tier: 'Elite',
-    status: 'booked',   manager: 'Priya S.',
-  },
-  {
-    id: 'BK-2590', party: 'Tech Conf. Dinner', client: 'Infosys Ltd.',
-    date: '25 Jul 2026', venue: 'Banquet Suite A', pax: 200, tier: 'Standard',
-    status: 'confirmed', manager: 'Rohan K.',
-  },
-  {
-    id: 'BK-2585', party: 'Gupta Anniversary', client: 'Sunil Gupta',
-    date: '02 Aug 2026', venue: 'Rooftop Lounge', pax: 80, tier: 'Premium',
-    status: 'temporary', manager: 'Aryan D.',
-  },
-  {
-    id: 'BK-2580', party: 'Patel Engagement',  client: 'Meera Patel',
-    date: '10 Aug 2026', venue: 'Garden Pavilion', pax: 160, tier: 'Premium',
-    status: 'enquiry',  manager: 'Rohan K.',
-  },
+  { id: 'BK-2601', party: 'Mehta Wedding',      client: 'Rakesh Mehta',  date: '14 Jul 2026', venue: 'Grand Ballroom',  pax: 450, status: 'confirmed' },
+  { id: 'BK-2598', party: 'Sharma Birthday',    client: 'Neha Sharma',   date: '18 Jul 2026', venue: 'Terrace Garden',  pax: 120, status: 'enquiry'   },
+  { id: 'BK-2593', party: 'Kapoor Reception',   client: 'Vijay Kapoor',  date: '22 Jul 2026', venue: 'Crystal Hall',    pax: 320, status: 'confirmed' },
+  { id: 'BK-2590', party: 'Tech Conf. Dinner',  client: 'Infosys Ltd.',  date: '25 Jul 2026', venue: 'Banquet Suite A', pax: 200, status: 'confirmed' },
+  { id: 'BK-2585', party: 'Gupta Anniversary',  client: 'Sunil Gupta',   date: '02 Aug 2026', venue: 'Rooftop Lounge',  pax: 80,  status: 'temporary' },
+  { id: 'BK-2580', party: 'Patel Engagement',   client: 'Meera Patel',   date: '10 Aug 2026', venue: 'Garden Pavilion', pax: 160, status: 'enquiry'   },
 ];
 
-const UPCOMING = [
-  { time: '10:00', label: 'Site visit — Mehta Wedding', tag: 'confirmed' },
-  { time: '12:30', label: 'Client call — Sharma Birthday', tag: 'enquiry' },
-  { time: '15:00', label: 'Finance review — Kapoor Reception', tag: 'finance' },
-  { time: '17:30', label: 'Menu tasting — Gupta Anniversary', tag: 'ops' },
+const PIPELINE = [
+  { stage: 'New Enquiry',    count: 7, value: '₹4.2L', color: '#5B8FE8', pct: 43 },
+  { stage: 'Menu Pending',   count: 5, value: '₹3.8L', color: '#E8C455', pct: 31 },
+  { stage: 'Finance Review', count: 4, value: '₹5.1L', color: '#9B6DE8', pct: 25 },
+  { stage: 'Confirmed',      count: 8, value: '₹5.3L', color: '#5FBF8A', pct: 50 },
 ];
 
-const TIER_COLORS = { Standard: '#6B7C6E', Premium: '#C9A96E', Elite: '#A07840' };
+const SCHEDULE = [
+  { time: '10:00', label: 'Site visit — Mehta Wedding',        tag: 'confirmed' },
+  { time: '12:30', label: 'Client call — Sharma Birthday',     tag: 'enquiry'   },
+  { time: '15:00', label: 'Finance review — Kapoor Reception', tag: 'finance'   },
+  { time: '17:30', label: 'Menu tasting — Gupta Anniversary',  tag: 'ops'       },
+];
 
-/* ─── Component ────────────────────────────────────────────────────── */
-export default function SalesDashboard({ onBack }) {
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
+const STATUS_BADGE = {
+  confirmed: 'sd-badge--green',
+  enquiry:   'sd-badge--amber',
+  temporary: 'sd-badge--purple',
+  booked:    'sd-badge--blue',
+};
 
-  const filtered = BOOKINGS.filter(b => {
-    const matchSearch =
-      b.party.toLowerCase().includes(search.toLowerCase()) ||
-      b.client.toLowerCase().includes(search.toLowerCase()) ||
-      b.id.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' || b.status === filter;
-    return matchSearch && matchFilter;
-  });
+/* ─── Component ───────────────────────────────────────────── */
+export default function SalesDashboard() {
+  const navigate = useNavigate();
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [search, setSearch]       = useState('');
+
+  const filtered = BOOKINGS.filter(b =>
+    b.party.toLowerCase().includes(search.toLowerCase()) ||
+    b.client.toLowerCase().includes(search.toLowerCase()) ||
+    b.id.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="s-root">
+    <div className="sd-root">
+
       {/* ── Topbar ── */}
-      <div className="s-topbar">
-        <div className="s-topbar__brand">
-          <div className="s-topbar__logo">S</div>
+      <div className="sd-topbar">
+        <div className="sd-topbar__brand">
+          <div className="sd-topbar__logo">S</div>
           <div>
-            <div className="s-topbar__title">Sales Dashboard</div>
-            <div className="s-topbar__sub">Banquet IntelliManager</div>
+            <div className="sd-topbar__title">Sales Dashboard</div>
+            <div className="sd-topbar__sub">Banquet IntelliManager</div>
           </div>
         </div>
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#F5F0E8] hover:bg-[rgba(91,143,232,0.1)] transition-colors"
-          style={{ border: '1px solid rgba(91,143,232,0.2)' }}
-        >
-          ← Back
+        <button className="sd-topbar__backbtn" onClick={() => navigate('/')}>
+          ← Back to Home
         </button>
       </div>
 
-      {/* ── Layout ── */}
-      <div className="s-layout">
-        {/* Left Navigation */}
-        <div className="s-leftNav">
-          <div className="s-navTile s-navTile--active">
-            <div className="s-navTile__bg" style={{ background: `radial-gradient(ellipse at 20% 20%, rgba(91,143,232,0.22) 0%, transparent 60%)` }} />
-            <div className="s-navTile__content">
-              <div className="s-navTile__title">Dashboard</div>
-              <div className="s-navTile__subtitle">Overview of sales pipeline</div>
-            </div>
-          </div>
-          <div className="s-navTile">
-            <div className="s-navTile__bg" style={{ background: `radial-gradient(ellipse at 20% 20%, rgba(91,143,232,0.22) 0%, transparent 60%)` }} />
-            <div className="s-navTile__content">
-              <div className="s-navTile__title">Bookings</div>
-              <div className="s-navTile__subtitle">Manage all bookings</div>
-            </div>
-          </div>
-          <div className="s-navTile">
-            <div className="s-navTile__bg" style={{ background: `radial-gradient(ellipse at 20% 20%, rgba(91,143,232,0.22) 0%, transparent 60%)` }} />
-            <div className="s-navTile__content">
-              <div className="s-navTile__title">Analytics</div>
-              <div className="s-navTile__subtitle">Sales insights</div>
-            </div>
-          </div>
-        </div>
+      {/* ── Body: sidebar + main ── */}
+      <div className="sd-body">
 
-        {/* Main Content */}
-        <div className="s-main">
-          {/* Hero Strip */}
-          <div className="s-heroStrip">
-            <div>
-              <div className="s-heroStrip__kicker">Sales Overview</div>
-              <div className="s-heroStrip__headline">Welcome to Sales Dashboard</div>
-              <div className="s-heroStrip__meta">{new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
+        {/* ── Left nav ── */}
+        <nav className="sd-sidenav">
+          {[
+            { id: 'dashboard', icon: '🏠', label: 'Dashboard' },
+            { id: 'bookings',  icon: '📋', label: 'Bookings'  },
+            { id: 'analytics', icon: '📊', label: 'Analytics' },
+            { id: 'clients',   icon: '👥', label: 'Clients'   },
+          ].map(item => (
+            <div
+              key={item.id}
+              className={`sd-navitem ${activeNav === item.id ? 'sd-navitem--active' : ''}`}
+              onClick={() => setActiveNav(item.id)}
+            >
+              <span className="sd-navitem__icon">{item.icon}</span>
+              {item.label}
             </div>
-            <button className="s-heroStrip__cta" style={{ background: '#5B8FE8', border: '1px solid #5B8FE8', color: 'white' }}>
+          ))}
+        </nav>
+
+        {/* ── Main content ── */}
+        <main className="sd-main">
+
+          {/* Hero strip */}
+          <div className="sd-hero">
+            <div>
+              <div className="sd-hero__kicker">Sales Overview</div>
+              <div className="sd-hero__headline">Welcome, Sales Manager</div>
+              <div className="sd-hero__meta">
+                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+            <button className="sd-hero__cta" onClick={() => navigate('/sales/new')}>
               + New Booking
             </button>
           </div>
 
-          {/* Stats Grid */}
-          <div className="s-grid4">
-            {STATS.map((s, i) => (
-              <div key={s.label} className="s-statCard" style={{ animationDelay: `${i * 0.1}s` }}>
-                <div className="s-statValue" style={{ color: '#5B8FE8' }}>
-                  {s.value}
-                </div>
-                <div className="s-statLabel">{s.label}</div>
-                <div className="s-statSub">{s.trend}</div>
+          {/* Stats */}
+          <div className="sd-stats">
+            {STATS.map(s => (
+              <div key={s.label} className="sd-stat">
+                <div className="sd-stat__val">{s.value}</div>
+                <div className="sd-stat__label">{s.label}</div>
+                <div className="sd-stat__trend">{s.trend}</div>
               </div>
             ))}
           </div>
 
-          {/* Bookings Grid */}
-          <div className="s-bookings">
-            <div className="s-sectionHead">
-              <div>
-                <div className="s-sectionHead__title">Recent Bookings</div>
-                <div className="s-sectionHead__sub">Latest booking activities</div>
+          {/* Two-col: bookings list + aside */}
+          <div className="sd-grid2">
+
+            {/* Bookings card */}
+            <div className="sd-card">
+              <div className="sd-card__head">
+                <span className="sd-card__title">Recent Bookings</span>
+                <input
+                  placeholder="Search…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{
+                    background: 'rgba(255,255,255,.04)',
+                    border: '1px solid rgba(91,143,232,.2)',
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                    color: '#F5F0E8',
+                    fontSize: 13,
+                    outline: 'none',
+                    width: 160,
+                  }}
+                />
               </div>
-            </div>
-            {filtered.slice(0, 4).map((b, i) => (
-              <div key={b.id} className="s-bookingCard">
-                <div className="s-bookingCard__top">
-                  <div>
-                    <div className="s-bookingCard__title">{b.party}</div>
-                    <div className="s-bookingCard__sub">{b.client} · {b.date} · {b.venue}</div>
+              <div className="sd-card__body" style={{ padding: '0 20px' }}>
+                {filtered.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'rgba(245,240,232,.35)', fontSize: 14 }}>
+                    No bookings match your search
                   </div>
-                  <span className="s-badge s-badge--blue">{b.status}</span>
-                </div>
-                <div className="s-progress">
-                  <div className="s-progress__inner" style={{ width: '75%', background: '#5B8FE8' }} />
-                </div>
-                <div className="s-bookingCard__bottom">
-                  <button className="s-linkBtn">View Details →</button>
-                </div>
+                ) : filtered.map(b => (
+                  <div key={b.id} className="sd-booking">
+                    <div className="sd-booking__top">
+                      <div>
+                        <div className="sd-booking__title">{b.party}</div>
+                        <div className="sd-booking__sub">{b.client} · {b.date} · {b.venue} · {b.pax} pax</div>
+                      </div>
+                      <span className={`sd-badge ${STATUS_BADGE[b.status] || 'sd-badge--blue'}`}>
+                        {b.status}
+                      </span>
+                    </div>
+                    <div className="sd-progress">
+                      <div className="sd-progress__fill" style={{ width: b.status === 'confirmed' ? '85%' : b.status === 'temporary' ? '55%' : '30%' }} />
+                    </div>
+                    <button className="sd-link-btn">View Details →</button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* Alerts Section */}
-          <div className="s-sectionHead">
-            <div>
-              <div className="s-sectionHead__title">Notifications</div>
-              <div className="s-sectionHead__sub">Important updates</div>
+            {/* Aside */}
+            <div className="sd-aside">
+
+              {/* Pipeline funnel */}
+              <div className="sd-card">
+                <div className="sd-card__head">
+                  <span className="sd-card__title">Sales Pipeline</span>
+                  <span className="sd-card__count">24 total</span>
+                </div>
+                <div className="sd-card__body">
+                  {PIPELINE.map(p => (
+                    <div key={p.stage} className="sd-funnel__item">
+                      <div className="sd-funnel__bar-wrap">
+                        <div className="sd-funnel__bar" style={{ width: `${p.pct}%`, background: p.color }} />
+                      </div>
+                      <div className="sd-funnel__meta">
+                        <span className="sd-funnel__stage">{p.stage}</span>
+                        <div className="sd-funnel__nums">
+                          <span className="sd-funnel__count" style={{ color: p.color }}>{p.count}</span>
+                          <span className="sd-funnel__val">{p.value}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Today's schedule */}
+              <div className="sd-card">
+                <div className="sd-card__head">
+                  <span className="sd-card__title">Today's Schedule</span>
+                </div>
+                <div className="sd-card__body" style={{ padding: '0 20px' }}>
+                  {SCHEDULE.map((s, i) => (
+                    <div key={i} className="sd-schedule__item">
+                      <span className="sd-schedule__time">{s.time}</span>
+                      <div>
+                        <div className="sd-schedule__label">{s.label}</div>
+                        <span className={`sd-schedule__tag sd-schedule__tag--${s.tag}`}>{s.tag}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Alerts */}
+              <div className="sd-card">
+                <div className="sd-card__head">
+                  <span className="sd-card__title">Notifications</span>
+                </div>
+                <div className="sd-card__body">
+                  <div className="sd-alert">
+                    <div className="sd-alert__icon">!</div>
+                    <div>
+                      <div className="sd-alert__title">Follow-up Required</div>
+                      <div className="sd-alert__desc">2 bookings need follow-up calls today</div>
+                    </div>
+                  </div>
+                  <div className="sd-alert">
+                    <div className="sd-alert__icon">✓</div>
+                    <div>
+                      <div className="sd-alert__title">Booking Confirmed</div>
+                      <div className="sd-alert__desc">Mehta Wedding deposit received</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
-          <div className="s-alertGrid">
-            <div className="s-alert s-alert--blue">
-              <div className="s-alert__icon">!</div>
-              <div className="s-alert__text">
-                <div className="s-alert__title">Follow-up Required</div>
-                <div className="s-alert__desc">2 bookings need follow-up calls</div>
-              </div>
-            </div>
-            <div className="s-alert s-alert--blue">
-              <div className="s-alert__icon">✓</div>
-              <div className="s-alert__text">
-                <div className="s-alert__title">New Booking</div>
-                <div className="s-alert__desc">Mehta Wedding confirmed</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
     </div>
   );

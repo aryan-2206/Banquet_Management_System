@@ -104,7 +104,7 @@ function Particles() {
    SECTIONS
 ────────────────────────────────────────── */
 
-function Navbar({ page, setPage }) {
+function Navbar({ page, setPage, onStaffLogin }) {
   const [sc, setSc] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -148,7 +148,15 @@ function Navbar({ page, setPage }) {
         ))}
       </div>
 
-      <div style={{ display:'flex', gap:10 }}>
+      <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+        {onStaffLogin && (
+          <button onClick={onStaffLogin}
+            style={{ padding:'6px 14px', background:'transparent', border:'1px solid rgba(201,168,76,.2)', color:'rgba(201,168,76,.7)', borderRadius:6, fontSize:11, cursor:'pointer', transition:'all .3s', letterSpacing:'.04em' }}
+            onMouseEnter={e=>{ e.target.style.background='rgba(201,168,76,.08)'; e.target.style.borderColor='rgba(201,168,76,.5)'; e.target.style.color='#C9A84C'; }}
+            onMouseLeave={e=>{ e.target.style.background='transparent'; e.target.style.borderColor='rgba(201,168,76,.2)'; e.target.style.color='rgba(201,168,76,.7)'; }}>
+            Staff Login
+          </button>
+        )}
         <button style={{ padding:'8px 18px', background:'transparent', border:'1px solid rgba(201,168,76,.35)', color:'#C9A84C', borderRadius:8, fontSize:13, cursor:'pointer', transition:'all .3s' }}
           onMouseEnter={e=>{ e.target.style.background='rgba(201,168,76,.08)'; e.target.style.borderColor='#C9A84C'; }}
           onMouseLeave={e=>{ e.target.style.background='transparent'; e.target.style.borderColor='rgba(201,168,76,.35)'; }}>
@@ -631,11 +639,21 @@ function Dashboard({ setPage }) {
 }
 
 /* ──────────────────────────────────────────
-   ROOT
+   ROOT — accepts optional onModuleClick prop
+   so App.jsx can intercept module card clicks
+   and show an auth modal before routing.
 ────────────────────────────────────────── */
-export default function App() {
+export default function LandingApp({ onModuleClick, onStaffLogin } = {}) {
   const [page, setPage] = useState('landing');
   useReveal();
+
+  function handleSetPage(p) {
+    if (onModuleClick && ['sales','finance','gre','kitchen','dj','client','admin'].includes(p)) {
+      onModuleClick(p);
+    } else {
+      setPage(p);
+    }
+  }
 
   return (
     <div style={{ background:'#080810', minHeight:'100vh', fontFamily:"'Outfit',sans-serif", color:'#F5F0E8' }}>
@@ -659,13 +677,13 @@ export default function App() {
 
       {page === 'landing' && (
         <>
-          <Navbar page={page} setPage={setPage} />
-          <Hero setPage={setPage} />
+          <Navbar page={page} setPage={handleSetPage} onStaffLogin={onStaffLogin} />
+          <Hero setPage={handleSetPage} />
           <Marquee />
           <Features />
           <Workflow />
           <USPStrip />
-          <Modules setPage={setPage} />
+          <Modules setPage={handleSetPage} />
           <Stats />
           <Footer />
         </>
@@ -673,23 +691,23 @@ export default function App() {
 
       {page === 'dashboard' && (
         <>
-          <Navbar page={page} setPage={setPage} />
-          <Dashboard setPage={setPage} />
+          <Navbar page={page} setPage={handleSetPage} />
+          <Dashboard setPage={handleSetPage} />
         </>
       )}
 
       {['sales','finance','gre','kitchen','dj','client','admin'].includes(page) && (
         <>
-          <Navbar page={page} setPage={setPage} />
+          <Navbar page={page} setPage={handleSetPage} />
           <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:24 }}>
             <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:'3rem', fontWeight:700, color:'#C9A84C' }}>
               {page.charAt(0).toUpperCase() + page.slice(1)} Module
             </div>
             <div style={{ color:'#6B6858', fontSize:15 }}>Coming up next — full module UI</div>
-            <button onClick={() => setPage('dashboard')} style={{ padding:'12px 28px', background:'rgba(201,168,76,.1)', border:'1px solid rgba(201,168,76,.3)', color:'#C9A84C', borderRadius:10, cursor:'pointer', fontSize:13 }}>← Back to Dashboard</button>
+            <button onClick={() => handleSetPage('dashboard')} style={{ padding:'12px 28px', background:'rgba(201,168,76,.1)', border:'1px solid rgba(201,168,76,.3)', color:'#C9A84C', borderRadius:10, cursor:'pointer', fontSize:13 }}>← Back to Dashboard</button>
           </div>
         </>
       )}
     </div>
   );
-}
+}

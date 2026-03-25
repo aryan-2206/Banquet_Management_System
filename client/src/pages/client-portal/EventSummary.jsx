@@ -319,8 +319,8 @@ export default function EventSummary() {
           {/* Quick links — 2 col, always */}
           <div className="grid grid-cols-2 gap-3 mt-0">
             {[
-              { label:'Manage Guest RSVP', icon:ICONS.users,   color:'#C9A84C', to:'/portal/rsvp'     },
-              { label:'Leave Feedback',    icon:ICONS.kitchen, color:'#9B6DE8', to:'/portal/feedback' },
+              { label:'Manage Guest RSVP', icon:ICONS.users,   color:'#C9A84C', to:'/client/rsvp'     },
+              { label:'Leave Feedback',    icon:ICONS.kitchen, color:'#9B6DE8', to:'/client/feedback' },
             ].map(({ label, icon, color, to }) => (
               <Link key={label} to={to}
                 className="flex flex-col items-center gap-2.5 py-5 px-3 rounded-2xl no-underline transition-all duration-200 lg:hover:-translate-y-0.5 lg:hover:shadow-lg"

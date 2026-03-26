@@ -36,6 +36,8 @@ export const api = {
 
   // AI
   getInsights: ()                 => request('/ai/insights'),
+getDishes: (params = '')        => request(`/dishes${params}`),
+updateDishStatus: (id, status)  => request(`/dishes/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   // Kitchen
   getKitchenEvents: ()            => request('/kitchen/events'),

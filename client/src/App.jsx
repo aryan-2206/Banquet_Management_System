@@ -9,6 +9,9 @@ import VenueCalendar from './pages/sales/VenueCalendar';
 import EventDetail from './pages/client-portal/EventDetail';
 import GuestRSVP from './pages/client-portal/GuestRSVP';
 import KitchenDashboard from './pages/kitchen/KitchenDashboard';
+import MenuManifest from './pages/kitchen/MenuManifest';
+import WasteLogger from './pages/kitchen/WasteLogger';
+
 import DJLiveView from './pages/dj/DJLiveView';
 import ClientDashboard from './pages/client-portal/ClientDashboard';
 import FinanceDashboard from './pages/finance/FinanceDashboard';
@@ -32,6 +35,8 @@ export default function App() {
 
       {/* Other modules */}
       <Route path="/kitchen" element={<KitchenDashboard />} />
+      <Route path="/kitchen/menu-manifest" element={<MenuManifest />} />
+      <Route path="/kitchen/waste-logger" element={<WasteLogger />} />
       <Route path="/dj" element={<DJLiveView />} />
       <Route path="/client" element={<ClientDashboard />} />
       <Route path="/client/event-detail" element={<EventDetail />} />

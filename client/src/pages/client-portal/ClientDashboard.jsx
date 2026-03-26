@@ -20,13 +20,12 @@ const GOLD = '#C9A84C';
 const TABS = [
   { id:'home',      label:'Home',      emoji:'🏠' },
   { id:'events',    label:'Events',    emoji:'📅' },
-  { id:'guests',    label:'Guests',    emoji:'👥' },
   { id:'payments',  label:'Payments',  emoji:'💰' },
   { id:'documents', label:'Docs',      emoji:'📄' },
   { id:'feedback',  label:'Feedback',  emoji:'⭐' },
 ];
 
-function HomeTab({ setTab, client, nextEvent, isPostEvent, events }) {
+function HomeTab({ setTab, client, nextEvent, isPostEvent, events, globalGuestSummary }) {
   function handleQuickAction(action) {
     const tabMap = { payments: 'payments', guests: 'guests', menu: 'events', support: 'home' };
     setTab(tabMap[action] || 'home');
@@ -38,7 +37,11 @@ function HomeTab({ setTab, client, nextEvent, isPostEvent, events }) {
       <div className="portal-grid-home">
         <UpcomingEventCard event={nextEvent} onNavigate={setTab} />
         <PaymentSummaryWidget events={events} compact={true} />
-        <GuestManagementQuickView summary={GUESTS_SUMMARY} onNavigate={setTab} compact={true} />
+        {globalGuestSummary ? (
+          <GuestManagementQuickView summary={globalGuestSummary} onNavigate={setTab} compact={true} eventId={nextEvent?.id} />
+        ) : (
+          <div className="portal-card text-center text-xs text-[#6B6858] p-4 flex items-center justify-center">Loading guests...</div>
+        )}
         <MenuSnapshotCard menu={nextEvent?.menu || []} />
         <ContactSupportCard manager={client.manager} />
       </div>
@@ -50,7 +53,7 @@ function HomeTab({ setTab, client, nextEvent, isPostEvent, events }) {
 const PANEL = {
   home:      HomeTab,
   events:    ({ events }) => <AllEventsTimeline events={events} />,
-  guests:    () => <GuestManagementQuickView summary={GUESTS_SUMMARY} />,
+  guests:    ({ globalGuestSummary, nextEvent }) => globalGuestSummary ? <GuestManagementQuickView summary={globalGuestSummary} eventId={nextEvent?.id} /> : <div className="portal-card p-6 text-center text-[#9D9880]">Loading guest data...</div>,
   payments:  ({ events }) => <PaymentSummaryWidget events={events} />,
   documents: () => <DocumentsVault documents={DOCUMENTS} />,
   feedback:  ({ isPostEvent }) => <><NotificationsFeed notifications={NOTIFICATIONS} onNavigate={() => {}} />{isPostEvent && <PostEventSection feedbackSubmitted={false} />}</>,
@@ -62,13 +65,14 @@ export default function ClientDashboard({ onBack }) {
   const [events, setEvents] = useState(MOCK_EVENTS);
   const [clientProfile, setClientProfile] = useState(CLIENT);
   const [loading, setLoading] = useState(true);
+  const [globalGuestSummary, setGlobalGuestSummary] = useState(null);
 
   useEffect(() => {
     api.getBookings().then(res => {
       if (res.success && res.bookings.length > 0) {
         // Map the first DB booking to the portal's format to give a live real-time feel
         const dbEvents = res.bookings.filter(b => b.status !== 'cancelled').map(b => ({
-          id: b.enquiryId,
+          id: b._id,
           type: b.eventDetails.eventType,
           name: b.personalDetails.name + ' Event',
           date: new Date(b.eventDetails.date).toISOString().split('T')[0],
@@ -94,6 +98,27 @@ export default function ClientDashboard({ onBack }) {
             name: res.bookings[0].personalDetails.name,
             venue: { name: dbEvents[0].hall, address: '', mapsUrl: '' }
           });
+
+          // Fetch guests for the primary event to populate the Guests widget
+          fetch(`http://localhost:5001/api/guests?bookingId=${res.bookings[0]._id}&eventId=${res.bookings[0]._id}`)
+            .then(r => r.json())
+            .then(gData => {
+              if (gData.success) {
+                const list = gData.guests;
+                const total = list.length;
+                const confirmed = list.filter(g => g.rsvp === 'confirmed').length;
+                const pending = list.filter(g => g.rsvp === 'pending').length;
+                const withoutQR = list.filter(g => g.rsvp === 'confirmed').length;
+                const dietary = { veg:0, nonVeg:0, jain:0, halal:0 };
+                list.forEach(g => {
+                  if (g.dietary?.includes('veg')) dietary.veg++;
+                  if (g.dietary?.includes('nonVeg') || g.dietary?.includes('non-veg')) dietary.nonVeg++;
+                  if (g.dietary?.includes('jain')) dietary.jain++;
+                  if (g.dietary?.includes('halal')) dietary.halal++;
+                });
+                setGlobalGuestSummary({ total, confirmed, pending, withoutQR, dietary });
+              }
+            }).catch(() => {});
         }
       }
       setLoading(false);
@@ -226,9 +251,20 @@ export default function ClientDashboard({ onBack }) {
 
           {/* Content padding + max-width */}
           <div className="px-4 md:px-6 lg:px-8 pt-2 pb-4 max-w-[1200px] mx-auto">
-            {loading ? <div className="text-center text-[#9D9880] py-20">Syncing live portal...</div> : 
-             <ActivePanel setTab={setActiveTab} events={events} client={clientProfile} nextEvent={nextEvent} isPostEvent={isPostEvent} />
-            }
+          {loading ? (
+             <div className="flex items-center justify-center p-12 text-[#C9A84C] animate-pulse text-sm font-medium tracking-wider">
+               Loading Portal Data...
+             </div>
+          ) : (
+            <ActivePanel 
+              events={events} 
+              client={clientProfile} 
+              nextEvent={nextEvent} 
+              isPostEvent={isPostEvent} 
+              setTab={setActiveTab}
+              globalGuestSummary={globalGuestSummary}
+            />
+          )}
           </div>
         </main>
 

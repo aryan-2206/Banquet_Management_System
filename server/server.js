@@ -1,6 +1,7 @@
 require('dotenv').config();
 const http = require('http');
 const { Server } = require('socket.io');
+const ngrok = require('@ngrok/ngrok');
 
 const app = require('./app');
 const connectDB = require('./config/db');
@@ -60,9 +61,31 @@ cron.schedule('*/15 * * * *', async () => {
 // ── WhatsApp Reminder Scheduler (daily 9am IST) ─────────────────
 startReminderScheduler();
 
-// ── Start server ────────────────────────────────────────────
-httpServer.listen(PORT, () => {
+// ── Start server + ngrok tunnel ─────────────────────────────
+async function bootstrap() {
+  await new Promise((resolve) => httpServer.listen(PORT, resolve));
   console.log(`\n🚀 Server running on port ${PORT}`);
   console.log(`   API: http://localhost:${PORT}/api/health`);
-  console.log(`   Socket.IO ready\n`);
-});
+  console.log(`   Socket.IO ready`);
+
+  // Start ngrok tunnel so Twilio can reach our /uploads files
+  if (process.env.NGROK_AUTHTOKEN) {
+    try {
+      const listener = await ngrok.connect({
+        addr:     PORT,
+        authtoken: process.env.NGROK_AUTHTOKEN,
+      });
+      const publicUrl = listener.url();
+      // Make it available everywhere in the process (e.g. qrService)
+      process.env.SERVER_BASE_URL = publicUrl;
+      console.log(`   🌐 ngrok public URL: ${publicUrl}`);
+      console.log(`   📷 QR media base:   ${publicUrl}/uploads/qr-temp/\n`);
+    } catch (err) {
+      console.warn(`   ⚠️  ngrok failed (${err.message}) — QR WhatsApp delivery may not work locally.\n`);
+    }
+  } else {
+    console.warn(`   ⚠️  NGROK_AUTHTOKEN not set — skipping tunnel. QR images won't be reachable by Twilio.\n`);
+  }
+}
+
+bootstrap();

@@ -12,6 +12,7 @@ export const api = {
   // Bookings
   createBooking: (body)           => request('/bookings', { method: 'POST', body: JSON.stringify(body) }),
   getBookings: (params = '')      => request(`/bookings${params}`),
+  getBooking: (id)                => request(`/bookings/${id}`),
   checkAvailability: (date, venue)=> request(`/bookings/check-availability?date=${date}&venue=${encodeURIComponent(venue)}`),
   updateBookingStatus: (id, status) => request(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
@@ -21,6 +22,7 @@ export const api = {
   confirmBooking: (id)            => request(`/payments/${id}/confirm`, { method: 'PATCH' }),
   updateInstallmentPlan: (id, plan) => request(`/payments/${id}/installment-plan`, { method: 'PUT', body: JSON.stringify({ installmentPlan: plan }) }),
   toggleTranche: (id, trancheIdx) => request(`/payments/${id}/tranche/${trancheIdx}/toggle`, { method: 'PATCH' }),
+  getPaymentByBooking: (bookingId) => request(`/payments?booking=${bookingId}`),
 
   // Auth
   login: (body)                   => request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),

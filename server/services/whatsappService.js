@@ -141,4 +141,50 @@ For any queries, feel free to reply here.`;
   }
 }
 
-module.exports = { sendInstallmentPlan, sendReminder, sendPaymentConfirmation };
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. QR Code Delivery (sent when a QR is generated for a guest)
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendQRCode(guestPhone, data) {
+  const { guestName, eventName, familyMembers = 1, qrImageUrl } = data;
+
+  const membersLine = familyMembers > 1
+    ? `👨‍👩‍👧 *Family Members:* ${familyMembers} (this QR admits all ${familyMembers})`
+    : `👤 *Entry for:* 1 person`;
+
+  const body = `🎟️ *Your Event Entry QR Code*
+
+Hi ${guestName}! Your entry pass for *${eventName}* is ready.
+
+${membersLine}
+
+━━━━━━━━━━━━━━━━━━━
+📲 *Instructions:*
+• Keep this QR code screenshot saved
+• Show it at the entry gate for scanning
+• This QR is unique to you — do not share
+━━━━━━━━━━━━━━━━━━━
+
+See you at the event! 🎉`;
+
+  try {
+    const msgOptions = {
+      from: FROM,
+      to: toWhatsApp(guestPhone),
+      body,
+    };
+
+    // Attach the QR image if a public URL is provided
+    if (qrImageUrl) {
+      msgOptions.mediaUrl = [qrImageUrl];
+    }
+
+    const msg = await client.messages.create(msgOptions);
+    console.log(`✅ [WhatsApp] QR Code sent to ${guestPhone} | SID: ${msg.sid}`);
+    return { success: true, sid: msg.sid };
+  } catch (err) {
+    console.error(`❌ [WhatsApp] QR delivery failed for ${guestPhone}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = { sendInstallmentPlan, sendReminder, sendPaymentConfirmation, sendQRCode };

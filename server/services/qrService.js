@@ -1,52 +1,98 @@
 const crypto = require('crypto');
+const path   = require('path');
+const fs     = require('fs');
 const QRCode = require('qrcode');
-const QRCodeModel = require('../models/QRCode'); // The Mongoose model we just created
+const QRCodeModel = require('../models/QRCode');
+const { sendQRCode: sendQRCodeViaWhatsApp } = require('./whatsappService');
+
+// Directory to temporarily store QR PNGs so Twilio can fetch them
+// In production, upload to S3/Cloudinary and return a permanent URL instead.
+const QR_TEMP_DIR = path.join(__dirname, '..', 'uploads', 'qr-temp');
+if (!fs.existsSync(QR_TEMP_DIR)) fs.mkdirSync(QR_TEMP_DIR, { recursive: true });
 
 class QRService {
   /**
-   * Generates a QR code, stores the unique reference in the database,
-   * and returns the base64 encoded image for rendering.
-   * 
-   * @param {Object} options Options for generation
-   * @param {String} options.entityType 'Guest' | 'Booking' | 'Other'
-   * @param {String} options.entityId The MongoDB ObjectId of the entity
-   * @param {Object} options.data Any additional data to store with the QR code
-   * @returns {Object} { qrId, qrCodeImage }
+   * Generates a QR code for a guest, stores it in the DB,
+   * saves the PNG to disk, and optionally sends it via WhatsApp.
+   *
+   * @param {Object} options
+   * @param {String}  options.entityType      'Guest' | 'Booking' | 'Other'
+   * @param {String}  options.entityId        MongoDB ObjectId of the entity
+   * @param {Object}  options.data            Additional data (name, phone, event, etc.)
+   * @param {Number}  options.familyMembers   Number of family members allowed (default 1)
+   * @param {String}  options.phone           Guest phone for WhatsApp delivery (optional)
+   * @param {String}  options.serverBaseUrl   Public base URL of the server for media (e.g. https://yourdomain.com)
+   * @returns {Object} { qrId, qrCodeImage, whatsappResult? }
    */
-  async generateQRCode({ entityType = 'Other', entityId = null, data = {} } = {}) {
+  async generateQRCode({
+    entityType    = 'Other',
+    entityId      = null,
+    data          = {},
+    familyMembers = 1,
+    phone         = null,
+    serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:5001'
+  } = {}) {
     try {
-      // 1. Generate a secure, unique identifier for the QR code
       const qrId = crypto.randomUUID();
 
-      // 2. Save the metadata to the database so it can be verified later
+      // Normalise familyMembers to a positive integer
+      const members = Math.max(1, Math.floor(Number(familyMembers) || 1));
+
+      // Save to DB
       const qrRecord = new QRCodeModel({
         qrId,
         entityType,
         entityId,
         data,
+        familyMembers: members,
         status: 'active'
       });
       await qrRecord.save();
 
-      // 3. The content embedded in the QR image itself.
-      // Often this is a full URL to a verification endpoint (e.g., https://yourdomain.com/verify?id={qrId})
-      // For general app usage, embedding just the ID or JSON string works.
-      const qrContent = JSON.stringify({ qrId });
+      // QR image content: embed the qrId so scanning apps can pass it to /verify
+      const qrContent = JSON.stringify({ qrId, familyMembers: members });
 
-      // 4. Generate the QR Code visual representation (Base64 Data URI)
+      // Generate base64 DataURI (used by the frontend renderer)
       const qrCodeImage = await QRCode.toDataURL(qrContent, {
         errorCorrectionLevel: 'M',
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
+        margin: 3,
+        width: 400,
+        color: { dark: '#1A1A2E', light: '#FFFFFF' }
       });
+
+      // Also save a PNG file to disk so Twilio can fetch it via public URL
+      const filename  = `${qrId}.png`;
+      const filePath  = path.join(QR_TEMP_DIR, filename);
+      await QRCode.toFile(filePath, qrContent, {
+        errorCorrectionLevel: 'M',
+        margin: 3,
+        width: 400,
+        color: { dark: '#1A1A2E', light: '#FFFFFF' }
+      });
+
+      const qrPublicUrl = `${serverBaseUrl}/uploads/qr-temp/${filename}`;
+
+      // Send via WhatsApp if phone is provided
+      let whatsappResult = null;
+      if (phone) {
+        const guestName = data.name || 'Guest';
+        const eventName = data.eventName || 'the event';
+
+        whatsappResult = await sendQRCodeViaWhatsApp(phone, {
+          guestName,
+          eventName,
+          familyMembers: members,
+          qrImageUrl: qrPublicUrl
+        });
+      }
 
       return {
         success: true,
         qrId,
-        qrCodeImage
+        qrCodeImage,    // base64 DataURI
+        qrPublicUrl,    // disk-backed public URL
+        familyMembers: members,
+        whatsappResult
       };
     } catch (error) {
       console.error('Error in QRService.generateQRCode:', error);
@@ -55,10 +101,8 @@ class QRService {
   }
 
   /**
-   * Verifies a QR Code by its ID and marks it as scanned if it was active.
-   * 
-   * @param {String} qrId The unique ID extracted from the scanned QR code
-   * @returns {Object} { valid, message, qrData }
+   * Verifies a QR Code. On success marks it 'scanned' and returns the
+   * family member count so the gate staff knows how many people to admit.
    */
   async verifyQRCode(qrId) {
     try {
@@ -68,33 +112,37 @@ class QRService {
         return { valid: false, message: 'QR Code not found or invalid' };
       }
 
-      if (qrRecord.status === 'scanned') {
-        return { 
-          valid: false, 
-          message: 'QR Code has already been scanned',
-          scannedAt: qrRecord.scannedAt
+      if (qrRecord.status === 'scanned' || qrRecord.familyMembers <= 0) {
+        return {
+          valid: false,
+          message: 'QR Code fully redeemed (No entries remaining)',
+          scannedAt: qrRecord.scannedAt,
+          familyMembers: 0
         };
       }
 
       if (qrRecord.status !== 'active') {
-        return { 
-          valid: false, 
-          message: `QR Code is ${qrRecord.status}`
-        };
+        return { valid: false, message: `QR Code is ${qrRecord.status}` };
       }
 
-      // Mark as scanned
-      qrRecord.status = 'scanned';
+      // Decrement allowed members
+      qrRecord.familyMembers -= 1;
+
+      // Mark as scanned if no more members allowed
+      if (qrRecord.familyMembers <= 0) {
+        qrRecord.status = 'scanned';
+      }
+      
       qrRecord.scannedAt = new Date();
       await qrRecord.save();
 
-      // Successful verification
       return {
         valid: true,
-        message: 'QR Code verified successfully',
-        data: qrRecord.data,
-        entityType: qrRecord.entityType,
-        entityId: qrRecord.entityId
+        message: `1 Guest Admitted. Remaining entries: ${qrRecord.familyMembers}`,
+        familyMembers: qrRecord.familyMembers,
+        data:          qrRecord.data,
+        entityType:    qrRecord.entityType,
+        entityId:      qrRecord.entityId
       };
     } catch (error) {
       console.error('Error in QRService.verifyQRCode:', error);
@@ -102,9 +150,7 @@ class QRService {
     }
   }
 
-  /**
-   * Optionally manually revoke a QR Code (e.g. if an event is cancelled)
-   */
+  /** Manually revoke a QR Code (e.g. booking cancelled) */
   async revokeQRCode(qrId) {
     try {
       const result = await QRCodeModel.findOneAndUpdate(
@@ -112,7 +158,7 @@ class QRService {
         { status: 'revoked' },
         { new: true }
       );
-      return result ? true : false;
+      return !!result;
     } catch (error) {
       console.error('Error in QRService.revokeQRCode:', error);
       throw new Error('Failed to revoke QR code');

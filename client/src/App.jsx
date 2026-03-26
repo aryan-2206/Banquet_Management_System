@@ -7,7 +7,7 @@ import NewBooking from './pages/sales/NewBooking';
 import BookingDetail from './pages/sales/BookingDetail';
 import VenueCalendar from './pages/sales/VenueCalendar';
 import EventDetail from './pages/client-portal/EventDetail';
-
+import GuestRSVP from './pages/client-portal/GuestRSVP';
 import KitchenDashboard from './pages/kitchen/KitchenDashboard';
 import DJLiveView from './pages/dj/DJLiveView';
 import ClientDashboard from './pages/client-portal/ClientDashboard';
@@ -36,6 +36,8 @@ export default function App() {
       <Route path="/client" element={<ClientDashboard />} />
       <Route path="/client/event-detail" element={<EventDetail />} />
       <Route path="/client/event-detail/:id" element={<EventDetail />} />
+      <Route path="/client/rsvp" element={<GuestRSVP />} />
+      <Route path="/client/rsvp/:id" element={<GuestRSVP />} />
       <Route path="/finance" element={<FinanceDashboard />} />
       <Route path="/finance/ledger" element={<PaymentLedger />} />
       <Route path="/finance/installments" element={<InstallmentBuilder />} />

@@ -34,7 +34,7 @@ function CSSDonut({ data, total }) {
   );
 }
 
-export default function GuestManagementQuickView({ summary, compact }) {
+export default function GuestManagementQuickView({ summary, compact, eventId }) {
   const navigate = useNavigate();
   const { total, confirmed, withoutQR, dietary } = summary;
 
@@ -86,7 +86,7 @@ export default function GuestManagementQuickView({ summary, compact }) {
         <div className="flex items-center justify-between rounded-xl px-4 py-3 mb-3"
           style={{ background:'rgba(232,197,85,0.08)', border:'1px solid rgba(232,197,85,0.25)' }}>
           <span className="text-sm text-[#E8C455]">⚡ {withoutQR} guests without QR</span>
-          <button onClick={() => navigate('/client/rsvp')}
+          <button onClick={() => navigate(eventId ? `/client/rsvp/${eventId}` : '/client/rsvp')}
             className="py-2 px-4 rounded-lg text-xs font-medium cursor-pointer min-h-[36px]"
             style={{ background:'rgba(232,197,85,0.15)', border:'1px solid rgba(232,197,85,0.3)', color:'#E8C455' }}>
             Send QR
@@ -95,7 +95,7 @@ export default function GuestManagementQuickView({ summary, compact }) {
       )}
 
       {/* CTA */}
-      <button onClick={() => navigate('/client/rsvp')}
+      <button onClick={() => navigate(eventId ? `/client/rsvp/${eventId}` : '/client/rsvp')}
         className="w-full md:w-auto py-3 px-6 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 hover:brightness-110 block md:mx-auto"
         style={{ border:'1px solid rgba(155,109,232,0.3)', background:'rgba(155,109,232,0.07)', color:'#9B6DE8' }}>
         Manage Full Guest List →

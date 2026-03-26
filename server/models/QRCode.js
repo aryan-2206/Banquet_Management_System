@@ -18,6 +18,11 @@ const QRCodeSchema = new mongoose.Schema({
   data: {
     type: mongoose.Schema.Types.Mixed
   },
+  familyMembers: {
+    type: Number,
+    default: 1,
+    min: 0
+  },
   status: {
     type: String,
     enum: ['active', 'scanned', 'expired', 'revoked'],

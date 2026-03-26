@@ -2,44 +2,38 @@
 
 .sd-root {
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91,143,232,.08) 0%, transparent 60%),
-    #080810;
+  /* Deep black background with a very subtle radial gold shimmer */
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.05) 0%, transparent 40%),
+    #050508;
   color: #F5F0E8;
-  font-family: 'Outfit', 'DM Sans', sans-serif;
+  font-family: 'Outfit', sans-serif;
   display: flex;
   flex-direction: column;
 }
 
-/* ── Topbar ───────────────────────────────────────────────── */
+/* ── Topbar: Polished & Sharp ────────────────────────────── */
 .sd-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 28px;
-  border-bottom: 1px solid rgba(91,143,232,.1);
-  background: rgba(8,8,16,.9);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+  background: rgba(5, 5, 8, 0.95);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 40;
-  gap: 16px;
-}
-
-.sd-topbar__brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
 }
 
 .sd-topbar__logo {
   width: 42px; height: 42px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #5B8FE8, #3A5A8E);
+  background: linear-gradient(135deg, #bdaa40, #B8860B); /* Pure Gold Gradient */
+  color: #000;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 18px;
-  color: #080810;
-  flex-shrink: 0;
+  font-weight: 800;
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
 }
 
 .sd-topbar__title {

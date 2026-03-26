@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useKitchenStore from "../../store/kitchenSlice";
+import api from "../../utils/api";
 
 const T = {
   bg: "#080810", surface: "rgba(255,255,255,.025)", border: "rgba(201,168,76,.14)",
@@ -70,7 +71,7 @@ export default function KitchenDashboard() {
   const [qFilter, setQFilter] = useState("all");
   const [sFilter, setSFilter] = useState("all");
   const [queue, setQueue] = useState(PREP_QUEUE);
-  
+
   const events = useKitchenStore(s => s.events);
   const loading = useKitchenStore(s => s.loading);
   const fetchEvents = useKitchenStore(s => s.fetchEvents);
@@ -78,6 +79,36 @@ export default function KitchenDashboard() {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    if (events && events.length > 0) {
+      Promise.all(events.map(ev => api.getDishes(`?eventId=${ev.id}`)))
+        .then(resps => {
+          const allDishes = resps.flatMap((dishes, idx) => dishes.map(d => {
+            const statusMap = {
+              "Pending": "pending",
+              "Active": "active",
+              "Served": "done",
+              "Closed": "done"
+            };
+            return {
+              id: d._id,
+              dish: d.name,
+              event: events[idx].name,
+              station: d.course,
+              status: statusMap[d.status] || "pending",
+              chef: "Kitchen Team",
+              eta: "TBD",
+              urgent: d.isUrgent || false
+            };
+          }));
+          if (allDishes.length > 0) {
+            setQueue(allDishes);
+          }
+        })
+        .catch(err => console.error("Error fetching dishes:", err));
+    }
+  }, [events]);
 
   const totalPax = events.reduce((s, e) => s + e.pax, 0);
   const totalArrived = events.reduce((s, e) => s + e.arrived, 0);
@@ -134,8 +165,8 @@ export default function KitchenDashboard() {
         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Quick access</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
           {[
-            { label: "Menu Manifest", desc: "Dishes by course — mark prep status", img: "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=480&q=80", route: "/kitchen/manifest" },
-            { label: "Waste Logger", desc: "Log consumption & download CSV report", img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=480&q=80", route: "/kitchen/waste" },
+            { label: "Menu Manifest", desc: "Dishes by course — mark prep status", img: "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=480&q=80", route: "/kitchen/menu-manifest" },
+            { label: "Waste Logger", desc: "Log consumption & download CSV report", img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=480&q=80", route: "/kitchen/waste-logger" },
             { label: "Tonight's Menu", desc: "Full client-selected menu by event", img: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=480&q=80", route: "/kitchen/manifest" },
           ].map((t, i) => (
             <div key={i} className="kd-nav" onClick={() => navigate(t.route)} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: "hidden", cursor: "pointer", transition: "transform .22s, border-color .18s", animation: `kdf .45s ease ${0.1 + i * 0.08}s both` }}>
@@ -178,8 +209,14 @@ export default function KitchenDashboard() {
                 <div style={{ fontSize: 10, color: T.dim }}>ready by</div>
               </div>
               <div style={{ flexShrink: 0 }}>
-                {item.status === "pending" && <button className="kd-bg" onClick={() => setQueue(q => q.map(p => p.id === item.id ? { ...p, status: "active" } : p))} style={{ padding: "7px 12px", borderRadius: 10, border: `1px solid rgba(201,168,76,.25)`, background: "rgba(201,168,76,.07)", color: T.goldText, fontSize: 12, fontWeight: 900, cursor: "pointer", transition: "background .18s" }}>Start</button>}
-                {item.status === "active" && <button className="kd-bg" onClick={() => setQueue(q => q.map(p => p.id === item.id ? { ...p, status: "done" } : p))} style={{ padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(95,191,138,.3)", background: "rgba(95,191,138,.1)", color: "#5FBF8A", fontSize: 12, fontWeight: 900, cursor: "pointer", transition: "background .18s" }}>Done ✓</button>}
+                {item.status === "pending" && <button className="kd-bg" onClick={() => {
+                  api.updateDishStatus(item.id, "Active").catch(console.error);
+                  setQueue(q => q.map(p => p.id === item.id ? { ...p, status: "active" } : p));
+                }} style={{ padding: "7px 12px", borderRadius: 10, border: `1px solid rgba(201,168,76,.25)`, background: "rgba(201,168,76,.07)", color: T.goldText, fontSize: 12, fontWeight: 900, cursor: "pointer", transition: "background .18s" }}>Start</button>}
+                {item.status === "active" && <button className="kd-bg" onClick={() => {
+                  api.updateDishStatus(item.id, "Served").catch(console.error);
+                  setQueue(q => q.map(p => p.id === item.id ? { ...p, status: "done" } : p));
+                }} style={{ padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(95,191,138,.3)", background: "rgba(95,191,138,.1)", color: "#5FBF8A", fontSize: 12, fontWeight: 900, cursor: "pointer", transition: "background .18s" }}>Done ✓</button>}
                 {item.status === "done" && <span style={{ fontSize: 18, color: T.green }}>✓</span>}
               </div>
             </div>

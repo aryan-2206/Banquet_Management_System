@@ -7,7 +7,7 @@ import './SalesDashboard.css';
 export default function SalesDashboard() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('dashboard');
-  const [search, setSearch]       = useState('');
+  const [search, setSearch] = useState('');
 
   const { bookings, fetchBookings, loading } = useBookingStore();
 
@@ -20,19 +20,19 @@ export default function SalesDashboard() {
     const active = bookings.filter(b => b.status === 'confirmed').length;
     const pending = bookings.filter(b => b.status === 'enquiry').length;
     const nonCancelled = bookings.filter(b => b.status !== 'cancelled');
-    
+
     const revenue = nonCancelled.reduce((acc, b) => acc + (b.total || 0), 0);
-    const avgPax = nonCancelled.length 
-      ? Math.round(nonCancelled.reduce((acc, b) => acc + (b.pax || 0), 0) / nonCancelled.length) 
+    const avgPax = nonCancelled.length
+      ? Math.round(nonCancelled.reduce((acc, b) => acc + (b.pax || 0), 0) / nonCancelled.length)
       : 0;
-    
-    const fmtRev = revenue >= 100000 ? `₹${(revenue/100000).toFixed(2)}L` : `₹${revenue.toLocaleString('en-IN')}`;
+
+    const fmtRev = revenue >= 100000 ? `₹${(revenue / 100000).toFixed(2)}L` : `₹${revenue.toLocaleString('en-IN')}`;
 
     return [
-      { label: 'Active Bookings',   value: active.toString(),    trend: '' },
-      { label: 'Revenue Pipeline',  value: fmtRev,               trend: 'All non-cancelled' },
-      { label: 'Pending Enquiries', value: pending.toString(),   trend: 'Requires follow-up' },
-      { label: 'Avg Pax / Event',   value: avgPax.toString(),    trend: '' },
+      { label: 'Active Bookings', value: active.toString(), trend: '' },
+      { label: 'Revenue Pipeline', value: fmtRev, trend: 'All non-cancelled' },
+      { label: 'Pending Enquiries', value: pending.toString(), trend: 'Requires follow-up' },
+      { label: 'Avg Pax / Event', value: avgPax.toString(), trend: '' },
     ];
   }, [bookings]);
 
@@ -40,7 +40,7 @@ export default function SalesDashboard() {
   const pipeline = useMemo(() => {
     const counts = { enquiry: 0, temporary: 0, confirmed: 0 };
     const values = { enquiry: 0, temporary: 0, confirmed: 0 };
-    
+
     bookings.forEach(b => {
       if (counts[b.status] !== undefined) {
         counts[b.status]++;
@@ -49,20 +49,20 @@ export default function SalesDashboard() {
     });
 
     const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    const fmt = (v) => v >= 100000 ? `₹${(v/100000).toFixed(2)}L` : `₹${v.toLocaleString('en-IN')}`;
+    const fmt = (v) => v >= 100000 ? `₹${(v / 100000).toFixed(2)}L` : `₹${v.toLocaleString('en-IN')}`;
 
     return [
       { stage: 'New Enquiry', count: counts.enquiry, value: fmt(values.enquiry), color: '#5B8FE8', pct: (counts.enquiry / total) * 100 },
-      { stage: 'Temporary',   count: counts.temporary, value: fmt(values.temporary), color: '#9B6DE8', pct: (counts.temporary / total) * 100 },
-      { stage: 'Confirmed',   count: counts.confirmed, value: fmt(values.confirmed), color: '#5FBF8A', pct: (counts.confirmed / total) * 100 },
+      { stage: 'Temporary', count: counts.temporary, value: fmt(values.temporary), color: '#9B6DE8', pct: (counts.temporary / total) * 100 },
+      { stage: 'Confirmed', count: counts.confirmed, value: fmt(values.confirmed), color: '#5FBF8A', pct: (counts.confirmed / total) * 100 },
     ];
   }, [bookings]);
 
   // Upcoming Schedule
   const schedule = useMemo(() => {
     const startOfToday = new Date();
-    startOfToday.setHours(0,0,0,0);
-    
+    startOfToday.setHours(0, 0, 0, 0);
+
     return bookings
       .filter(b => b.date && new Date(b.date) >= startOfToday && b.status !== 'cancelled')
       .sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -77,7 +77,7 @@ export default function SalesDashboard() {
 
   const STATUS_BADGE = {
     confirmed: 'sd-badge--green',
-    enquiry:   'sd-badge--amber',
+    enquiry: 'sd-badge--amber',
     temporary: 'sd-badge--purple',
     cancelled: 'sd-badge--red',
   };
@@ -108,15 +108,14 @@ export default function SalesDashboard() {
         </button>
       </div>
 
-      {/* ── Body: sidebar + main ── */}
       <div className="sd-body">
         {/* ── Left nav ── */}
         <nav className="sd-sidenav">
           {[
             { id: 'dashboard', icon: '🏠', label: 'Dashboard' },
-            { id: 'bookings',  icon: '📋', label: 'Bookings'  },
+            { id: 'bookings', icon: '📋', label: 'Bookings' },
             { id: 'analytics', icon: '📊', label: 'Analytics' },
-            { id: 'clients',   icon: '👥', label: 'Clients'   },
+            { id: 'clients', icon: '👥', label: 'Clients' },
           ].map(item => (
             <div
               key={item.id}
@@ -134,7 +133,7 @@ export default function SalesDashboard() {
           {/* Hero strip */}
           <div className="sd-hero">
             <div>
-              <div className="sd-hero__kicker">Sales Overview (Live DB)</div>
+              <div className="sd-hero__kicker">Sales Overview</div>
               <div className="sd-hero__headline">Welcome, Sales Manager</div>
               <div className="sd-hero__meta">
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -186,7 +185,7 @@ export default function SalesDashboard() {
                   <div key={b._id} className="sd-booking">
                     <div className="sd-booking__top">
                       <div>
-                        <div className="sd-booking__title">{b.partyName} <span style={{fontSize: 11, color: '#9D9880'}}>({b.enquiryId})</span></div>
+                        <div className="sd-booking__title">{b.partyName} <span style={{ fontSize: 20, color: '#9D9880' }}>{b.personalDetails.name}</span></div>
                         <div className="sd-booking__sub">{b.clientName} · {b.date ? new Date(b.date).toLocaleDateString('en-IN') : 'TBD'} · {b.venue} · {b.pax} pax</div>
                       </div>
                       <span className={`sd-badge ${STATUS_BADGE[b.status] || 'sd-badge--blue'}`}>
@@ -208,10 +207,10 @@ export default function SalesDashboard() {
               <div className="sd-card">
                 <div className="sd-card__head">
                   <span className="sd-card__title">Sales Pipeline</span>
-                  <span className="sd-card__count">{bookings.filter(b=>b.status!=='cancelled').length} total</span>
+                  <span className="sd-card__count">{bookings.filter(b => b.status !== 'cancelled').length} total</span>
                 </div>
                 <div className="sd-card__body">
-                  {loading ? ( <div style={{padding:'20px',textAlign:'center',color:'#555'}}>Loading...</div> ) : pipeline.map(p => (
+                  {loading ? (<div style={{ padding: '20px', textAlign: 'center', color: '#555' }}>Loading...</div>) : pipeline.map(p => (
                     <div key={p.stage} className="sd-funnel__item">
                       <div className="sd-funnel__bar-wrap">
                         <div className="sd-funnel__bar" style={{ width: `${p.pct}%`, background: p.color }} />
@@ -235,12 +234,12 @@ export default function SalesDashboard() {
                 </div>
                 <div className="sd-card__body" style={{ padding: '0 20px' }}>
                   {schedule.length === 0 ? (
-                    <div style={{padding:'20px',textAlign:'center',color:'#555'}}>No upcoming events scheduled</div>
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#555' }}>No upcoming events scheduled</div>
                   ) : schedule.map((s, i) => (
                     <div key={i} className="sd-schedule__item">
-                      <div style={{display:'flex', flexDirection:'column'}}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span className="sd-schedule__time">{s.time}</span>
-                        <span style={{fontSize:10, color:'#9D9880'}}>{s.date}</span>
+                        <span style={{ fontSize: 10, color: '#9D9880' }}>{s.date}</span>
                       </div>
                       <div>
                         <div className="sd-schedule__label">{s.label}</div>

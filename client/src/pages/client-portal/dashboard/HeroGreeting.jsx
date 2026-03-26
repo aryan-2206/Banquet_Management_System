@@ -16,11 +16,19 @@ const ICONS = {
 };
 
 function Countdown({ targetDate }) {
-  const [secs, setSecs] = useState(Math.max(0, Math.floor((new Date(targetDate) - new Date()) / 1000)));
+  const getRemaining = () => {
+    const d = new Date(targetDate);
+    const validDate = isNaN(d.getTime()) ? new Date('2026-03-27T09:04:00') : d;
+    const ms = validDate - new Date();
+    return isFinite(ms) && ms > 0 ? Math.floor(ms / 1000) : 0;
+  };
+  const [secs, setSecs] = useState(getRemaining);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const id = setInterval(() => setSecs(s => Math.max(0, s - 1)), 1000);
+    setSecs(getRemaining());
+    const id = setInterval(() => setSecs(prev => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [targetDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600),
         m = Math.floor((secs % 3600) / 60), s = secs % 60;
   const pad = n => String(n).padStart(2, '0');

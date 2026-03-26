@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { CLIENT, EVENTS as MOCK_EVENTS, NOTIFICATIONS, DOCUMENTS, GUESTS_SUMMARY, daysUntil } from './dashboard/mockData';
 import '../client-portal/ClientPortal.css';
@@ -59,7 +60,8 @@ const PANEL = {
   feedback:  ({ isPostEvent }) => <><NotificationsFeed notifications={NOTIFICATIONS} onNavigate={() => {}} />{isPostEvent && <PostEventSection feedbackSubmitted={false} />}</>,
 };
 
-export default function ClientDashboard({ onBack }) {
+export default function ClientDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [events, setEvents] = useState(MOCK_EVENTS);
@@ -196,7 +198,7 @@ export default function ClientDashboard({ onBack }) {
           
           {/* Back button */}
           <button 
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#F5F0E8] hover:bg-[rgba(201,168,76,0.1)] transition-colors"
             style={{ border: '1px solid rgba(201,168,76,0.2)' }}
           >

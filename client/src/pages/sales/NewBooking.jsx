@@ -446,6 +446,16 @@ export default function NewBooking() {
               <span>ℹ</span>
               WhatsApp confirmation will be sent to <strong>{form.clientPhone}</strong> after submission.
             </div>
+
+            {submitError && (
+              <div className="nb__alert nb__alert--error" style={{ marginTop: '16px' }}>
+                <span className="nb__alert-icon">⚠</span>
+                <div>
+                  <strong>Submission Failed</strong>
+                  <p>{submitError}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { EVENTS, CLIENT, fmt, fmtDate, daysUntil, EVENT_TYPE_EMOJI, STATUS_CONFIG } from './dashboard/mockData';
+import api from '../../utils/api';
+import { CLIENT, fmt, fmtDate, daysUntil, EVENT_TYPE_EMOJI, STATUS_CONFIG } from './dashboard/mockData';
+import GuestManagementQuickView from './dashboard/GuestManagementQuickView';
 import '../client-portal/ClientPortal.css';
 
 // ─── Icon helper ───────────────────────────────────────────────────────────
@@ -85,14 +87,86 @@ export default function EventDetail() {
   const location = useLocation();
   const { id } = useParams();
 
-  // Prefer state passed via navigation, else find from EVENTS by id or take first upcoming
-  const event = location.state?.event
-    || (id && EVENTS.find(e => e.id === id))
-    || EVENTS.find(e => daysUntil(e.date) >= 0)
-    || EVENTS[0];
-
+  const [event, setEvent] = useState(location.state?.event || null);
+  const [loading, setLoading] = useState(!event);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+
+  useEffect(() => {
+    if (!event && id) {
+      api.getBooking(id).then(res => {
+        if (res.success && res.booking) {
+          const b = res.booking;
+          setEvent({
+            id: b._id,
+            type: b.eventDetails?.eventType || 'wedding',
+            name: b.personalDetails?.name + ' Event',
+            date: b.eventDetails?.date ? new Date(b.eventDetails.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            time: b.eventDetails?.time || '18:00',
+            hall: b.eventDetails?.venue ? b.eventDetails.venue.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Grand Hall',
+            pax: { contracted: b.eventDetails?.guests || 100, confirmed: b.eventDetails?.guests || 100 },
+            menuTier: b.menuSelection?.customRequirements?.includes('Elite') ? 'Elite' : 'Premium',
+            status: b.status || 'confirmed',
+            totalValue: b.costEstimate?.totalCost || 0,
+            paid: (b.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0),
+            instalments: b.payments || [],
+            highlights: ['Welcome Drink', 'Main Course', 'Desserts'],
+            addOns: [],
+            menuLocked: false,
+            sessions: [],
+            vendors: []
+          });
+        }
+        setLoading(false);
+      }).catch(err => {
+        console.error("Failed to fetch event", err);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [id, event]);
+
+  const [guestSummary, setGuestSummary] = useState(null);
+
+  useEffect(() => {
+    if (event?.id) {
+      fetch(`${API_BASE}/api/guests?bookingId=${event.id}&eventId=${event.id}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            const list = data.guests;
+            const total = list.length;
+            const confirmed = list.filter(g => g.rsvp === 'confirmed').length;
+            const pending = list.filter(g => g.rsvp === 'pending').length;
+            const withoutQR = list.filter(g => g.rsvp === 'confirmed').length; // Simplification
+            const dietary = { veg:0, nonVeg:0, jain:0, halal:0 };
+            list.forEach(g => {
+              if (g.dietary?.includes('veg')) dietary.veg++;
+              if (g.dietary?.includes('nonVeg') || g.dietary?.includes('non-veg')) dietary.nonVeg++;
+              if (g.dietary?.includes('jain')) dietary.jain++;
+              if (g.dietary?.includes('halal')) dietary.halal++;
+            });
+            setGuestSummary({ total, confirmed, pending, withoutQR, dietary });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [event?.id]);
+
+  // ── Fetch real payment record to compute Balance Due ────────────────
+  const [paymentRecord, setPaymentRecord] = useState(null);
+  useEffect(() => {
+    if (event?.id) {
+      api.getPaymentByBooking(event.id)
+        .then(data => {
+          const records = data.payments || data;
+          const record = Array.isArray(records) ? records.find(p => p.booking === event.id || p.booking?._id === event.id || p.booking?.toString() === event.id) || records[0] : records;
+          if (record) setPaymentRecord(record);
+        })
+        .catch(() => {});
+    }
+  }, [event?.id]);
 
   // ── Fetch gallery from backend ──────────────────────────────
   const [gallery, setGallery] = useState([]);
@@ -115,6 +189,14 @@ export default function EventDetail() {
 
   useEffect(() => { fetchGallery(); }, [fetchGallery]);
 
+  if (loading) return (
+    <div className="portal-page flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="text-[#C9A84C] text-sm animate-pulse">Loading Event Details...</div>
+      </div>
+    </div>
+  );
+
   if (!event) return (
     <div className="portal-page flex items-center justify-center min-h-screen">
       <div className="text-center">
@@ -125,11 +207,11 @@ export default function EventDetail() {
     </div>
   );
 
-  const balance = event.totalValue - event.paid;
-  const status = STATUS_CONFIG[event.status] || STATUS_CONFIG.confirmed;
+  const totalValue = paymentRecord?.totalValue || event.totalValue;
+  const paid       = paymentRecord?.totalPaid  ?? paymentRecord?.payments?.reduce((s,p) => s + (p.amount||0), 0) ?? event.paid;
+  const balance    = totalValue - paid;
+  const status     = STATUS_CONFIG[event.status] || STATUS_CONFIG.confirmed;
   const days = daysUntil(event.date);
-  const progressPct = Math.round((event.paid / event.totalValue) * 100);
-
   const TABS = ['overview', 'menu', 'vendors', 'gallery'];
 
   return (
@@ -175,8 +257,8 @@ export default function EventDetail() {
         {/* ── Stats Row ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatBadge label="Contracted Pax"  value={event.pax.contracted} color="#C9A84C" />
-          <StatBadge label="Confirmed Guests" value={event.pax.confirmed}  color="#9B6DE8" />
-          <StatBadge label="Total Value"      value={fmt(event.totalValue)} color="#5FBF8A" />
+          <StatBadge label="Confirmed Guests" value={guestSummary ? guestSummary.total : '—'}  color="#9B6DE8" />
+          <StatBadge label="Total Value"      value={fmt(totalValue)} color="#5FBF8A" />
           <StatBadge label="Balance Due"      value={fmt(balance)} color={balance > 0 ? '#E8C455' : '#5FBF8A'} />
         </div>
 
@@ -184,11 +266,11 @@ export default function EventDetail() {
         <div className="portal-card mb-6">
           <SectionTitle icon={CART}>Payment Progress</SectionTitle>
           <div className="flex justify-between text-xs text-[#9D9880] mb-2">
-            <span>Paid: {fmt(event.paid)}</span>
-            <span>{progressPct}% complete</span>
+            <span>Paid: {fmt(paid)}</span>
+            <span>{Math.round((paid / (totalValue || 1)) * 100)}% complete</span>
           </div>
           <div className="w-full h-2 rounded-full overflow-hidden mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #C9A84C, #5FBF8A)' }} />
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(Math.round((paid/(totalValue||1))*100), 100)}%`, background: 'linear-gradient(90deg, #C9A84C, #5FBF8A)' }} />
           </div>
           <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
             {event.instalments.map((inst, i) => (
@@ -253,6 +335,14 @@ export default function EventDetail() {
                 </div>
               </div>
             )}
+            
+            <div className="mt-4">
+              {guestSummary ? (
+                <GuestManagementQuickView summary={guestSummary} compact={true} eventId={event.id} />
+              ) : (
+                <div className="text-xs text-[#6B6858] p-4 text-center portal-card">Loading guest statistics...</div>
+              )}
+            </div>
           </div>
         )}
 

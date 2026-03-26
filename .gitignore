@@ -45,6 +45,3 @@ coverage/
 # ─── Database / local files ─────────────────
 *.sqlite
 *.db
-
-# ─── Optional uploads ───────────────────────
-uploads/

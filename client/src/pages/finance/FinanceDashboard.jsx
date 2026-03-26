@@ -97,7 +97,6 @@ function MetricCard({ title, value, prefix = '', suffix = '', sub, sub2, color, 
 /* ── Finance Sidebar (local, finance-specific tabs) ── */
 const FIN_NAV = [
   { id: 'overview',      label: 'Overview',          icon: ICONS.overview,     to: '/finance' },
-  { id: 'ledger',        label: 'Payment Ledger',    icon: ICONS.ledger,       to: '/finance/ledger' },
   { id: 'installments',  label: 'Installment Plans', icon: ICONS.installments, to: '/finance/installments' },
   { id: 'gst',           label: 'GST Report',        icon: ICONS.gst,          to: '/finance/gst' },
   { id: 'queue',         label: 'Booking Queue',     icon: ICONS.queue,        to: '/finance',  badge: true },
@@ -165,7 +164,7 @@ function BookingQueueTable({ bookings, onRecordPayment, onViewPlan }) {
         </thead>
         <tbody>
           {bookings.map((b, i) => {
-            const totalPaid = b.payments.reduce((a, p) => a + p.amount, 0);
+            const totalPaid = b.installmentPlan?.tranches?.reduce((a, t) => t.status === 'paid' ? a + t.amount : a, 0) || 0;
             const outstanding = b.totalValue - totalPaid;
             return (
               <tr key={b.id} className="fd-table__row animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
@@ -189,12 +188,6 @@ function BookingQueueTable({ bookings, onRecordPayment, onViewPlan }) {
                 </td>
                 <td className="fd-table__td">
                   <div className="fd-table__actions">
-                    {b.status !== 'settled' && (
-                      <button className="fd-action-btn" onClick={() => onRecordPayment(b.id)}
-                        aria-label={`Record payment for ${b.clientName}`}>
-                        <Icon d={ICONS.record} size={14} /> Pay
-                      </button>
-                    )}
                     <button className="fd-action-btn fd-action-btn--outline"
                       onClick={() => onViewPlan(b.id)}
                       aria-label={`View plan for ${b.clientName}`}>
@@ -221,6 +214,8 @@ export default function FinanceDashboard() {
   const selectBooking = useFinanceStore((s) => s.selectBooking);
   const fetchPayments = useFinanceStore((s) => s.fetchPayments);
   const loading       = useFinanceStore((s) => s.loading);
+  const initSocket    = useFinanceStore((s) => s.initSocket);
+  const cleanupSocket = useFinanceStore((s) => s.cleanupSocket);
 
   const [activeTab, setActiveTab]     = useState('overview');
   const [search, setSearch]           = useState('');
@@ -232,14 +227,16 @@ export default function FinanceDashboard() {
   useEffect(() => { 
     setMounted(true); 
     fetchPayments();
-  }, [fetchPayments]);
+    initSocket();
+    return () => cleanupSocket();
+  }, [fetchPayments, initSocket, cleanupSocket]);
 
   const pendingCount  = bookings.filter((b) => b.status === 'temporary').length;
   const overdueCount  = bookings.filter((b) => b.status === 'overdue').length;
   const settledCount  = bookings.filter((b) => b.status === 'settled').length;
   const monthRevenue  = bookings.filter((b) => b.status !== 'cancelled').reduce((a, b) => a + b.totalValue, 0);
   const outstanding   = bookings.reduce((a, b) => {
-    const paid = b.payments.reduce((s, p) => s + p.amount, 0);
+    const paid = b.installmentPlan?.tranches?.reduce((s, t) => t.status === 'paid' ? s + t.amount : s, 0) || 0;
     return a + Math.max(0, b.totalValue - paid);
   }, 0);
 

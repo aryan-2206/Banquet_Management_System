@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import api from '../../utils/api';
 
 const Icon = ({ d, size = 20, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -39,9 +40,7 @@ const RSVP_STATUS = {
   pending:   { label:'Pending',   color:'#E8C455', bg:'rgba(232,197,85,0.12)' },
   declined:  { label:'Declined',  color:'#E85555', bg:'rgba(232,85,85,0.12)'  },
 };
-const CONTRACTED_PAX = 350;
 
-// ── Parse dietary string from CSV cell ──
 function parseDietary(raw = '') {
   const lower = raw.toLowerCase();
   const matched = [];
@@ -61,6 +60,7 @@ function parseCSV(text) {
   const phoneIdx   = headers.findIndex(h => ['phone','mobile','contact','number','phonenumber'].includes(h));
   const dietaryIdx = headers.findIndex(h => ['dietary','diet','food','preference','dietarypreference'].includes(h));
   const rsvpIdx    = headers.findIndex(h => ['rsvp','status','rsvpstatus'].includes(h));
+  const paxIdx     = headers.findIndex(h => ['family','familymembers','pax','guests','count'].includes(h));
 
   if (nameIdx === -1) return { guests: [], errors: ['Could not find a "name" column. Make sure your CSV has a column named Name.'] };
 
@@ -77,19 +77,24 @@ function parseCSV(text) {
     const dietary = dietaryIdx !== -1 ? parseDietary(cols[dietaryIdx] || '') : [];
     const rsvpRaw = rsvpIdx    !== -1 ? (cols[rsvpIdx] || '').toLowerCase() : '';
     const rsvp    = ['confirmed','pending','declined'].includes(rsvpRaw) ? rsvpRaw : 'confirmed';
+    
+    const paxRaw  = paxIdx !== -1 ? cols[paxIdx] : '1';
+    const familyMembers = parseInt(paxRaw) > 0 ? parseInt(paxRaw) : 1;
 
-    guests.push({ id: Date.now() + i, name, phone, dietary, rsvp, walkIn: false, late: false });
+    guests.push({ id: Date.now() + i, name, phone, dietary, familyMembers, rsvp, walkIn: false, late: false });
   });
 
   return { guests, errors };
 }
 
-function QRToast({ name, onDone }) {
-  React.useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
+function QRToast({ toast, onDone }) {
+  React.useEffect(() => { const t = setTimeout(onDone, 3200); return () => clearTimeout(t); }, [onDone]);
+  const color = toast.success ? '#5FBF8A' : '#E8C455';
+  const icon  = toast.success ? ICONS.check : ICONS.warning;
   return (
-    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-2xl text-[#5FBF8A] text-sm font-medium"
-      style={{ background:'rgba(95,191,138,0.15)', border:'1px solid rgba(95,191,138,0.4)', backdropFilter:'blur(16px)', maxWidth:'90vw' }}>
-      <Icon d={ICONS.qr} size={14} /> QR dispatched to {name} via WhatsApp!
+    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-medium"
+      style={{ background:`${color}18`, border:`1px solid ${color}60`, backdropFilter:'blur(16px)', maxWidth:'90vw', color }}>
+      <Icon d={icon} size={14} /> {toast.msg}
     </div>
   );
 }
@@ -134,7 +139,10 @@ function CSVPreview({ guests, errors, onConfirm, onBack }) {
             </span>
             {/* Details */}
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-[#F5F0E8] font-medium truncate">{g.name}</div>
+              <div className="text-sm text-[#F5F0E8] font-medium truncate">
+                {g.name}
+                {g.familyMembers > 1 && <span className="text-xs text-[#9D9880] ml-1">+{g.familyMembers - 1} family</span>}
+              </div>
               <div className="flex gap-1 mt-0.5 flex-wrap">
                 {g.phone && <span className="text-[9px] text-[#6B6858]">{g.phone}</span>}
                 {g.dietary.map(did => {
@@ -174,7 +182,7 @@ function CSVPreview({ guests, errors, onConfirm, onBack }) {
 // ─────────────────────────────────────────────
 function AddGuestSheet({ onClose, onAdd, isLate }) {
   const [tab, setTab]           = useState('manual'); // 'manual' | 'csv'
-  const [form, setForm]         = useState({ name:'', phone:'', dietary:[] });
+  const [form, setForm]         = useState({ name:'', phone:'', dietary:[], familyMembers: 1 });
   const [csvState, setCsvState] = useState('idle'); // 'idle' | 'preview' | 'done'
   const [csvGuests, setCsvGuests] = useState([]);
   const [csvErrors, setCsvErrors] = useState([]);
@@ -200,7 +208,7 @@ function AddGuestSheet({ onClose, onAdd, isLate }) {
   const handleDrop = e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); };
 
   const downloadSample = () => {
-    const csv = `Name,Phone,Dietary,RSVP\nAarav Sharma,9876543210,Jain,confirmed\nMeera Gupta,9876543211,Vegetarian,confirmed\nRohan Verma,9876543212,,pending`;
+    const csv = `Name,Phone,FamilyMembers,Dietary,RSVP\nAarav Sharma,9876543210,4,Jain,confirmed\nMeera Gupta,9876543211,1,Vegetarian,confirmed\nRohan Verma,9876543212,2,,pending`;
     const blob = new Blob([csv], { type:'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'guest_list_sample.csv'; a.click();
   };
@@ -252,6 +260,10 @@ function AddGuestSheet({ onClose, onAdd, isLate }) {
                 <div>
                   <label className="block text-xs text-[#9D9880] mb-2">Mobile (for QR)</label>
                   <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" type="tel" className={inp} />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#9D9880] mb-2">Total Family (+ Guest)</label>
+                  <input type="number" min="1" max="50" value={form.familyMembers} onChange={e => setForm(f => ({ ...f, familyMembers: Number(e.target.value) || 1 }))} className={inp} />
                 </div>
               </div>
               <label className="block text-xs text-[#9D9880] mb-3">Dietary Requirements</label>
@@ -332,11 +344,12 @@ function AddGuestSheet({ onClose, onAdd, isLate }) {
   );
 }
 
-function GuestRow({ guest, onDelete, onDispatchQR }) {
-  const [rsvp, setRsvp] = useState(guest.rsvp);
-  const avatarColor = ['#C9A84C','#5B8FE8','#5FBF8A','#9B6DE8','#E85E9A'][guest.name.length % 5];
+function GuestRow({ guest, onDelete, onUpdateRsvp, onDispatchQR, qrLoading }) {
+  const rsvp = guest.rsvp;
+  const safeName = guest.name || 'Unknown Guest';
+  const avatarColor = ['#C9A84C','#5B8FE8','#5FBF8A','#9B6DE8','#E85E9A'][safeName.length % 5];
   const status = RSVP_STATUS[rsvp] || RSVP_STATUS.pending;
-  const initials = guest.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const initials = safeName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const isConfirmed = rsvp === 'confirmed';
   return (
     <div className="rounded-2xl mb-2 overflow-hidden">
@@ -347,10 +360,14 @@ function GuestRow({ guest, onDelete, onDispatchQR }) {
             style={{ background:`${avatarColor}20`, border:`1.5px solid ${avatarColor}50`, color:avatarColor }}>{initials}</div>
           <div className="min-w-0">
             <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-sm font-medium text-[#F5F0E8] truncate">{guest.name}</span>
+              <span className="text-sm font-medium text-[#F5F0E8] truncate">
+                {safeName}
+                {guest.familyMembers > 1 && <span className="text-xs text-[#9D9880] ml-1">+{guest.familyMembers - 1}</span>}
+              </span>
               {guest.walkIn && <span className="text-[8px] px-1.5 py-0.5 rounded-md flex-shrink-0" style={{ background:'rgba(91,143,232,0.2)', color:'#5B8FE8' }}>Walk-In</span>}
             </div>
             <div className="flex gap-1 mt-0.5 flex-wrap">
+              {guest.phone && <span className="text-[9px] text-[#6B6858]">{guest.phone}</span>}
               {guest.dietary?.map(did => {
                 const tag = DIETARY_TAGS.find(t => t.id === did);
                 return tag ? <span key={did} className="text-[9px] px-2 py-0.5 rounded-md flex-shrink-0" style={{ background:`${tag.color}15`, color:tag.color, border:`1px solid ${tag.color}30` }}>{tag.label}</span> : null;
@@ -359,7 +376,7 @@ function GuestRow({ guest, onDelete, onDispatchQR }) {
             </div>
           </div>
         </div>
-        <button onClick={() => setRsvp(r => r === 'confirmed' ? 'pending' : 'confirmed')}
+        <button onClick={() => onUpdateRsvp(guest.id, rsvp === 'confirmed' ? 'pending' : 'confirmed')}
           className="flex-shrink-0 relative flex items-center cursor-pointer border-none p-0 min-w-[40px] min-h-[44px]"
           style={{ background:'none' }}>
           <span className="text-[10px] flex-shrink-0 mr-1 hidden sm:inline" style={{ color:'#4A4840' }}>RSVP</span>
@@ -382,9 +399,10 @@ function GuestRow({ guest, onDelete, onDispatchQR }) {
             </button>
             {isConfirmed && !guest.late && (
               <button onClick={() => onDispatchQR({ ...guest, rsvp:'confirmed' })}
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-[9px] cursor-pointer flex-shrink-0"
-                style={{ border:'1px solid rgba(37,211,102,0.35)', color:'#25D366', background:'rgba(37,211,102,0.06)', minHeight:28 }}>
-                <Icon d={ICONS.qr} size={10} /> QR
+                disabled={qrLoading}
+                className="flex items-center gap-1 px-2 py-1 rounded-full text-[9px] cursor-pointer flex-shrink-0 transition-all duration-200"
+                style={{ border:'1px solid rgba(37,211,102,0.35)', color: qrLoading ? '#4A4840' : '#25D366', background: qrLoading ? 'rgba(255,255,255,0.04)' : 'rgba(37,211,102,0.06)', minHeight:28, opacity: qrLoading ? 0.7 : 1 }}>
+                {qrLoading ? '...' : <><Icon d={ICONS.qr} size={10} /> QR</>}
               </button>
             )}
           </div>
@@ -395,20 +413,53 @@ function GuestRow({ guest, onDelete, onDispatchQR }) {
 }
 
 export default function GuestRSVP() {
-  const [guests, setGuests] = useState([
-    { id:1, name:'Aarav Sharma',  rsvp:'confirmed', dietary:['jain'],    walkIn:false, late:false },
-    { id:2, name:'Meera Gupta',   rsvp:'confirmed', dietary:['veg'],     walkIn:false, late:false },
-    { id:3, name:'Rohan Verma',   rsvp:'pending',   dietary:[],          walkIn:false, late:false },
-    { id:4, name:'Priya Nair',    rsvp:'confirmed', dietary:['vegan'],   walkIn:false, late:false },
-    { id:5, name:'Karan Mehta',   rsvp:'declined',  dietary:[],          walkIn:false, late:false },
-    { id:6, name:'Sunita Joshi',  rsvp:'confirmed', dietary:['gluten'],  walkIn:true,  late:false },
-    { id:7, name:'Dev Kapoor',    rsvp:'pending',   dietary:['nut'],     walkIn:false, late:false },
-  ]);
+  const { id: eventId } = useParams();
+
+  const [event, setEvent] = useState(null);
+  const [guests, setGuests] = useState([]);
+  const [bookingId, setBookingId] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [qrToast, setQrToast] = useState(null);
+  const [qrSending, setQrSending] = useState({});
   const [filter, setFilter]   = useState('all');
-  const [csvSuccess, setCsvSuccess] = useState(null); // "12 guests added"
+  const [csvSuccess, setCsvSuccess] = useState(null);
 
+  useEffect(() => {
+    api.getBookings().then(res => {
+      if (res.success && res.bookings.length > 0) {
+        let activeBooking = null;
+        if (eventId) {
+          activeBooking = res.bookings.find(b => b._id === eventId);
+        }
+        if (!activeBooking) {
+          activeBooking = res.bookings.find(b => b.status !== 'cancelled') || res.bookings[0];
+        }
+
+        setBookingId(activeBooking._id);
+        const evId = eventId || activeBooking._id;
+        
+        setEvent({
+          id: activeBooking._id,
+          name: activeBooking.personalDetails?.name + ' Event',
+          pax: activeBooking.eventDetails?.guests || 100
+        });
+        
+        fetch(`http://localhost:5001/api/guests?bookingId=${activeBooking._id}&eventId=${evId}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              setGuests(data.guests.map(g => ({ ...g, id: g._id })));
+            }
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
+      }
+    });
+  }, [eventId]);
+
+  const CONTRACTED_PAX = event?.pax || 100;
   const totalInvited = guests.length;
   const confirmed    = guests.filter(g => g.rsvp === 'confirmed').length;
   const paxPct       = Math.round((totalInvited / CONTRACTED_PAX) * 100);
@@ -424,16 +475,103 @@ export default function GuestRSVP() {
     return true;
   });
 
-  const handleAdd = newGuests => {
-    setGuests(p => [...p, ...newGuests]);
-    setShowAdd(false);
-    if (newGuests.length === 1 && !newGuests[0].late) {
-      setQrToast(newGuests[0].name);
-    } else if (newGuests.length > 1) {
-      setCsvSuccess(`${newGuests.length} guests added successfully!`);
-      setTimeout(() => setCsvSuccess(null), 3000);
+  const handleAdd = async newGuests => {
+    if (!bookingId) return;
+    try {
+      const res = await fetch('http://localhost:5001/api/guests/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, guests: newGuests, eventId: event?.id || 'ev_001' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const added = data.guests.map(g => ({ ...g, id: g._id }));
+        setGuests(p => [...p, ...added]);
+        setShowAdd(false);
+        if (added.length === 1 && !added[0].late) {
+          handleDispatchQR(added[0]);
+        } else if (added.length > 1) {
+          setCsvSuccess(`${added.length} guests added successfully!`);
+          setTimeout(() => setCsvSuccess(null), 3000);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to add guests', err);
     }
   };
+
+  const handleDelete = async id => {
+    try {
+      const res = await fetch(`http://localhost:5001/api/guests/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setGuests(p => p.filter(g => g.id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete guest', err);
+    }
+  };
+
+  const handleUpdateRsvp = async (id, newRsvp) => {
+    setGuests(p => p.map(g => g.id === id ? { ...g, rsvp: newRsvp } : g));
+    try {
+      await fetch(`http://localhost:5001/api/guests/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rsvp: newRsvp })
+      });
+    } catch (err) {
+      console.error('Failed to update RSVP', err);
+    }
+  };
+
+  const handleDispatchQR = async (guest) => {
+    if (!guest.phone) {
+      setQrToast({ name: guest.name, success: false, msg: 'No phone number — QR not sent' });
+      return;
+    }
+    setQrSending(s => ({ ...s, [guest.id]: true }));
+    try {
+      const res = await fetch('http://localhost:5001/api/qr/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:          guest.name,
+          phone:         guest.phone,
+          familyMembers: guest.familyMembers || 1,
+          eventName:     event.name,
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const waSent = data.whatsapp?.success;
+        setQrToast({ name: guest.name, success: true, msg: waSent ? `QR sent to ${guest.name} via WhatsApp!` : `QR generated (WA delivery pending)` });
+      } else {
+        setQrToast({ name: guest.name, success: false, msg: data.error || 'QR generation failed' });
+      }
+    } catch {
+      setQrToast({ name: guest.name, success: false, msg: 'Server unreachable' });
+    } finally {
+      setQrSending(s => { const n = {...s}; delete n[guest.id]; return n; });
+    }
+  };
+
+  const handleDispatchAll = () => {
+    const toSend = guests.filter(g => g.rsvp === 'confirmed' && g.phone && !qrSending[g.id]);
+    if (toSend.length === 0) {
+      setQrToast({ name: 'System', success: false, msg: 'No confirmed guests with valid phone numbers available.' });
+      return;
+    }
+    setCsvSuccess(`Dispatching QR codes to ${toSend.length} guests...`);
+    setTimeout(() => setCsvSuccess(null), 4000);
+    toSend.forEach(g => handleDispatchQR(g));
+  };
+  
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#080810]">
+      <div className="text-[#C9A84C] text-sm animate-pulse">Loading RSVP List...</div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#080810] font-sans text-[#F5F0E8]">
@@ -444,7 +582,7 @@ export default function GuestRSVP() {
         .portal-section-label { font-size:10px; color:#C9A84C; letter-spacing:0.2em; text-transform:uppercase; display:block; }
       `}</style>
 
-      {qrToast && <QRToast name={qrToast} onDone={() => setQrToast(null)} />}
+      {qrToast && <QRToast toast={qrToast} onDone={() => setQrToast(null)} />}
 
       {/* CSV success toast */}
       {csvSuccess && (
@@ -461,11 +599,11 @@ export default function GuestRSVP() {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-[#F5F0E8]" style={{ background:'linear-gradient(135deg,#9B6DE8,#6B3DAA)' }}>B</div>
             <div>
-              <div className="font-serif text-base font-bold text-[#F5F0E8]">Guest RSVP</div>
-              <div className="text-[8px] text-[#6B5520] tracking-[0.2em] uppercase -mt-0.5">Client Portal</div>
+              <div className="font-serif text-base font-bold text-[#F5F0E8]">{event?.name || 'Loading Event'}</div>
+              <div className="text-[8px] text-[#6B5520] tracking-[0.2em] uppercase -mt-0.5">Guest RSVP · Client Portal</div>
             </div>
           </div>
-          <Link to="/portal" className="text-xs text-[#9D9880] no-underline">← Dashboard</Link>
+          <Link to="/client" className="text-xs text-[#9D9880] no-underline">← Dashboard</Link>
         </div>
 
         <div className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-6 lg:px-8 pt-6 pb-28">
@@ -503,15 +641,27 @@ export default function GuestRSVP() {
 
               {/* Guest list */}
               <div>
-                {filteredGuests.length === 0
-                  ? <div className="text-center py-10 text-sm text-[#4A4840]">No guests match this filter.</div>
-                  : filteredGuests.map(g => <GuestRow key={g.id} guest={g} onDelete={id => setGuests(p => p.filter(g => g.id !== id))} onDispatchQR={g => setQrToast(g.name)} />)
-                }
+                {loading ? (
+                  <div className="text-center py-10 text-sm text-[#9D9880]">Loading guests...</div>
+                ) : filteredGuests.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-[#4A4840]">No guests match this filter.</div>
+                ) : (
+                  filteredGuests.map(g => (
+                    <GuestRow
+                      key={g.id}
+                      guest={g}
+                      onDelete={handleDelete}
+                      onUpdateRsvp={handleUpdateRsvp}
+                      onDispatchQR={() => handleDispatchQR(g)}
+                      qrLoading={qrSending[g.id]}
+                    />
+                  ))
+                )}
               </div>
 
               {confirmed > 0 && (
-                <button onClick={() => setQrToast(`${confirmed} guests`)}
-                  className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-medium cursor-pointer mt-2 min-h-[48px]"
+                <button onClick={handleDispatchAll}
+                  className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-medium cursor-pointer mt-2 min-h-[48px] transition-colors duration-200 hover:brightness-110"
                   style={{ border:'1px solid rgba(37,211,102,0.3)', background:'rgba(37,211,102,0.06)', color:'#25D366' }}>
                   <Icon d={ICONS.send} size={14} /> Dispatch QR to All {confirmed} Confirmed Guests
                 </button>

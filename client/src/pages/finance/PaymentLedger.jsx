@@ -24,7 +24,7 @@ function SegmentedBar({ segments }) {
   useEffect(() => {
     const t = setTimeout(() => setWidths(segments.map((s) => s.pct)), 80);
     return () => clearTimeout(t);
-  }, []);
+  }, [segments]);
 
   return (
     <div className="pl-bar">
@@ -40,22 +40,17 @@ function SegmentedBar({ segments }) {
 }
 
 function SummaryBar({ booking }) {
-  const totalPaid    = booking.payments.reduce((a, p) => a + p.amount, 0);
-  const outstanding  = booking.totalValue - totalPaid;
+  const tranches = booking.installmentPlan?.tranches || [];
+  const totalPaid = tranches.filter(t => t.status === 'paid').reduce((a, t) => a + t.amount, 0);
+  const outstanding = booking.totalValue - totalPaid;
 
-  const typeMap = { 'Initial Deposit': 0, 'Mid-term Installment': 1, 'Final Settlement': 2 };
-  const byType  = [0, 0, 0];
-  booking.payments.forEach((p) => {
-    const idx = typeMap[p.type] ?? 1;
-    byType[idx] += p.amount;
-  });
   const pct = (v) => booking.totalValue ? Math.round((v / booking.totalValue) * 100) : 0;
-
-  const segments = [
-    { label: 'Initial Deposit',     pct: pct(byType[0]), amount: byType[0], color: '#5B8FE8' },
-    { label: 'Mid-term Installment',pct: pct(byType[1]), amount: byType[1], color: '#C9A84C' },
-    { label: 'Final Settlement',    pct: pct(byType[2]), amount: byType[2], color: '#5FBF8A' },
-  ].filter((s) => s.pct > 0);
+  const segments = tranches.map((t, i) => ({
+    label: t.label,
+    pct: t.status === 'paid' ? pct(t.amount) : 0,
+    amount: t.status === 'paid' ? t.amount : 0,
+    color: i === 0 ? '#5B8FE8' : i === 1 ? '#C9A84C' : '#5FBF8A'
+  })).filter(s => s.pct > 0);
 
   return (
     <div className="pl-summary glass">
@@ -81,11 +76,7 @@ function SummaryBar({ booking }) {
         <div className="pl-bar-section">
           <SegmentedBar segments={segments} />
           <div className="pl-bar-legend">
-            {[
-              { label: 'Deposit',   color: '#5B8FE8' },
-              { label: 'Mid-term',  color: '#C9A84C' },
-              { label: 'Settlement',color: '#5FBF8A' },
-            ].map((l) => (
+            {segments.map((l) => (
               <span key={l.label} className="pl-bar-legend__item">
                 <span className="pl-bar-legend__dot" style={{ background: l.color }} />
                 {l.label}
@@ -98,28 +89,14 @@ function SummaryBar({ booking }) {
   );
 }
 
-const TYPE_COLORS = {
-  'Initial Deposit':      '#5B8FE8',
-  'Mid-term Installment': '#C9A84C',
-  'Final Settlement':     '#5FBF8A',
-};
-
 export default function PaymentLedger() {
   const navigate  = useNavigate();
   const booking   = useFinanceStore((s) => s.getSelectedBooking());
   const bookings  = useFinanceStore((s) => s.bookings);
   const selectBooking = useFinanceStore((s) => s.selectBooking);
-  const [payModal, setPayModal] = useState(false);
-  const [newestId, setNewestId] = useState(null);
+  const toggleTranche = useFinanceStore((s) => s.toggleTranche);
 
-  useEffect(() => {
-    if (booking?.payments?.length) {
-      const last = booking.payments[booking.payments.length - 1];
-      setNewestId(last.id);
-      const t = setTimeout(() => setNewestId(null), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [booking?.payments?.length]);
+  const [togglingIdx, setTogglingIdx] = useState(null);
 
   if (!booking) return (
     <div className="pl-root">
@@ -130,29 +107,30 @@ export default function PaymentLedger() {
     </div>
   );
 
-  const totalPaid = booking.payments.reduce((a, p) => a + p.amount, 0);
-  const outstanding = booking.totalValue - totalPaid;
+  const tranches = booking.installmentPlan?.tranches || [];
+  const totalPaid = tranches.filter(t => t.status === 'paid').reduce((a, p) => a + p.amount, 0);
 
-  // Group payments by type
-  const groups = {};
-  booking.payments.forEach((p) => {
-    if (!groups[p.type]) groups[p.type] = [];
-    groups[p.type].push(p);
-  });
+  const handleToggle = async (idx) => {
+    try {
+      setTogglingIdx(idx);
+      await toggleTranche(booking.id, idx);
+    } finally {
+      setTogglingIdx(null);
+    }
+  };
 
   return (
     <div className="pl-root">
       {/* Header */}
       <div className="pl-header">
         <button className="pl-back" onClick={() => navigate('/finance')} aria-label="Back to dashboard">
-          <Icon d={ICONS.back} size={16} />
-          Dashboard
+          <Icon d={ICONS.back} size={16} /> Dashboard
         </button>
 
         <div className="pl-header__booking">
           <div>
             <h1 className="pl-header__title">{booking.clientName}</h1>
-            <p className="pl-header__sub">{booking.id} · {booking.hall} · {booking.eventDate}</p>
+            <p className="pl-header__sub">{booking.bookingRef || booking.id} · {booking.hall} · {booking.eventDate}</p>
           </div>
           <BookingStatusBadge status={booking.status} size="lg" />
         </div>
@@ -162,7 +140,7 @@ export default function PaymentLedger() {
           value={booking.id} onChange={(e) => selectBooking(e.target.value)}
           aria-label="Select booking">
           {bookings.map((b) => (
-            <option key={b.id} value={b.id}>{b.id} — {b.clientName}</option>
+            <option key={b.id} value={b.id}>{b.bookingRef || b.id} — {b.clientName}</option>
           ))}
         </select>
       </div>
@@ -170,84 +148,64 @@ export default function PaymentLedger() {
       {/* Summary bar */}
       <SummaryBar booking={booking} />
 
-      {/* Record payment */}
-      <div className="pl-actions">
-        <button className="btn-gold pl-record-btn" onClick={() => setPayModal(true)}>
-          <Icon d={ICONS.add} size={16} />
-          <span>Record Payment</span>
-        </button>
-        <p className="pl-actions__hint">
-          {booking.payments.length} payment{booking.payments.length !== 1 ? 's' : ''} recorded
-        </p>
+      {/* Installment Plan Breakdown */}
+      <div className="pl-actions" style={{ marginTop: '24px' }}>
+        <h2 style={{ color: '#C9A84C', fontWeight: 500, margin: 0 }}>Installment Plan Breakdown</h2>
+        <p className="pl-actions__hint">Update individual tranches when clients pay directly or through WhatsApp</p>
       </div>
 
-      {/* Ledger table */}
-      {booking.payments.length === 0 ? (
-        <div className="pl-empty glass">
-          <div className="pl-empty__icon">◎</div>
-          <h3 className="pl-empty__title">No payments recorded yet</h3>
-          <p className="pl-empty__sub">Record the initial deposit to get started.</p>
-        </div>
-      ) : (
-        <div className="pl-table-section">
-          {Object.entries(groups).map(([type, payments]) => (
-            <div key={type} className="pl-group">
-              <div className="pl-group__header" style={{ borderColor: TYPE_COLORS[type] || '#C9A84C' }}>
-                <span className="pl-group__dot" style={{ background: TYPE_COLORS[type] || '#C9A84C' }} />
-                <span className="pl-group__label">{type}</span>
-                <span className="pl-group__total">
-                  {formatINR(payments.reduce((a, p) => a + p.amount, 0))}
-                </span>
-              </div>
-              <table className="pl-table">
-                <thead>
-                  <tr>
-                    {['Date', 'Amount', 'UTR Reference', 'Mode', 'Recorded By'].map(h => (
-                      <th key={h} className="pl-table__th">{h}</th>
-                    ))}
+      <div className="pl-table-section">
+        {tranches.length === 0 ? (
+           <div className="pl-empty glass">
+             <div className="pl-empty__icon">◎</div>
+             <h3 className="pl-empty__title">No tranches found</h3>
+           </div>
+        ) : (
+          <table className="pl-table" style={{ background: '#1c1b18', borderRadius: 8, overflow: 'hidden' }}>
+            <thead>
+              <tr>
+                <th className="pl-table__th">Instalment Phase</th>
+                <th className="pl-table__th">Due Date</th>
+                <th className="pl-table__th">Amount</th>
+                <th className="pl-table__th">Status</th>
+                <th className="pl-table__th">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tranches.map((t, i) => {
+                const isPaid = t.status === 'paid';
+                const isOverdue = t.status === 'overdue';
+                const isToggling = togglingIdx === i;
+                
+                return (
+                  <tr key={i} className={`pl-table__row ${isPaid ? 'pl-table__row--paid' : ''}`}>
+                    <td className="pl-table__td" style={{ fontWeight: 500 }}>{t.label}</td>
+                    <td className="pl-table__td">
+                      {new Date(t.dueDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                      {isOverdue && <span style={{ color: '#E85555', marginLeft: 8, fontSize: 12 }}>⚠ Overdue</span>}
+                    </td>
+                    <td className="pl-table__td fd-table__td--num">{formatINR(t.amount)}</td>
+                    <td className={`pl-table__td ${isPaid ? 'fd-table__td--green' : isOverdue ? 'fd-table__td--red' : 'fd-table__td--yellow'}`} style={{ fontWeight: 600 }}>
+                      {t.status.toUpperCase()}
+                    </td>
+                    <td className="pl-table__td">
+                      <button 
+                        className={`fd-action-btn ${isPaid ? 'fd-action-btn--outline' : ''}`}
+                        style={{ minWidth: 120, justifyContent: 'center', borderColor: isPaid ? '#5FBF8A' : '', color: isPaid ? '#5FBF8A' : '' }}
+                        onClick={() => handleToggle(i)}
+                        disabled={isToggling}
+                      >
+                        {isToggling ? 'Wait...' : isPaid ? '✅ Undo Paid' : '⬜ Mark Paid'}
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {payments.map((p) => (
-                    <tr key={p.id}
-                      className={`pl-table__row ${newestId === p.id ? 'pl-table__row--new' : ''} animate-fade-up`}>
-                      <td className="pl-table__td">{p.date}</td>
-                      <td className="pl-table__td pl-table__td--amount">{formatINR(p.amount)}</td>
-                      <td className="pl-table__td pl-table__td--utr">
-                        <code className="pl-utr">{p.utr}</code>
-                      </td>
-                      <td className="pl-table__td">
-                        <span className="pl-mode">{p.mode}</span>
-                      </td>
-                      <td className="pl-table__td">
-                        <span className="pl-recorder">
-                          <Icon d={ICONS.user} size={12} /> {p.recordedBy}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-          {/* Footer total */}
-          <div className="pl-footer-total glass">
-            <span>Running total received</span>
-            <span className="pl-footer-total__val pl-footer-total__val--green">{formatINR(totalPaid)}</span>
-            <span className="pl-footer-total__sep" />
-            <span>Outstanding</span>
-            <span className={`pl-footer-total__val ${outstanding > 0 ? 'pl-footer-total__val--red' : 'pl-footer-total__val--green'}`}>
-              {outstanding > 0 ? formatINR(outstanding) : '—'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {payModal && (
-        <PaymentEntryModal bookingId={booking.id}
-          onClose={() => setPayModal(false)} onSaved={() => setPayModal(false)} />
-      )}
     </div>
   );
 }

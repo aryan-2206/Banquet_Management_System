@@ -16,7 +16,7 @@ const whatsappRoutes  = require('./routes/whatsapp');
 const aiRoutes        = require('./routes/ai');
 const reportRoutes    = require('./routes/reports');
 const eventGalleryRoutes=require('./routes/eventGallery');
-
+const qrRoutes        = require('./routes/qr');
 const app = express();
 
 // ── Middleware ──────────────────────────────────────────────
@@ -44,7 +44,8 @@ app.use('/api/kitchen',   kitchenRoutes);
 app.use('/api/whatsapp',  whatsappRoutes);
 app.use('/api/ai',        aiRoutes);
 app.use('/api/reports',   reportRoutes);
-app.use('/api/events',eventGalleryRoutes);
+app.use('/api/events',    eventGalleryRoutes);
+app.use('/api/qr',        qrRoutes);
 
 // ── 404 handler ─────────────────────────────────────────────
 app.use((req, res) => {

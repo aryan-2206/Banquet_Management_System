@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fmt, fmtDate, daysUntil, STATUS_CONFIG, EVENT_TYPE_EMOJI } from './mockData';
 
 export default function AllEventsTimeline({ events }) {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState({});
   const tabs = ['all','upcoming','completed','cancelled'];
@@ -50,7 +52,8 @@ export default function AllEventsTimeline({ events }) {
 
             return (
               <div key={ev.id}
-                className={`rounded-2xl p-4 flex flex-col gap-2 transition-all duration-300 ${muted ? 'opacity-60' : 'lg:hover:-translate-y-0.5 lg:hover:shadow-lg'}`}
+                onClick={() => navigate(`/client/event-detail/${ev.id}`)}
+                className={`rounded-2xl p-4 flex flex-col gap-2 transition-all duration-300 cursor-pointer ${muted ? 'opacity-60' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
                 style={{
                   background:'rgba(255,255,255,0.02)',
                   border:`1px solid ${muted ? 'rgba(255,255,255,0.05)' : 'rgba(201,168,76,0.1)'}`,
@@ -77,8 +80,8 @@ export default function AllEventsTimeline({ events }) {
                 </div>
                 {/* Multi-session expander (when ev.sessions?.length > 0) */}
                 {ev.sessions?.length > 0 && (
-                  <button onClick={() => setExpanded(p => ({...p,[ev.id]:!p[ev.id]}))}
-                    className="text-xs text-[#C9A84C] text-left py-1 cursor-pointer bg-none border-none">
+                  <button onClick={(e) => { e.stopPropagation(); setExpanded(p => ({...p,[ev.id]:!p[ev.id]})); }}
+                    className="text-xs text-[#C9A84C] text-left py-1 cursor-pointer bg-none border-none relative z-10 w-fit">
                     {isExp ? '▲ Hide sessions' : `▼ ${ev.sessions.length} sessions`}
                   </button>
                 )}
@@ -88,9 +91,9 @@ export default function AllEventsTimeline({ events }) {
         </div>
       )}
 
-      {/* Book another CTA */}
       <div className="flex justify-center mt-5">
-        <button className="w-full md:w-auto py-3 px-8 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 hover:brightness-110 active:scale-95"
+        <button onClick={() => navigate('/sales/new')} 
+          className="w-full md:w-auto py-3 px-8 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 hover:brightness-110 active:scale-95"
           style={{ border:'1px solid rgba(201,168,76,0.25)', background:'rgba(201,168,76,0.06)', color:'#C9A84C' }}>
           ✦ Book Another Event
         </button>

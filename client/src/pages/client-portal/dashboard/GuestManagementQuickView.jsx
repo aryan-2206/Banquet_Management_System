@@ -8,7 +8,7 @@ const DIET_LABELS = { veg:'Vegetarian', nonVeg:'Non-Veg', jain:'Jain', halal:'Ha
 function CSSDonut({ data, total }) {
   let pct = 0;
   const segments = Object.entries(data).map(([key, val]) => {
-    const p = (val / total) * 100;
+    const p = total > 0 ? (val / total) * 100 : 0;
     const seg = { key, val, color: DIET_COLORS[key], start: pct, len: p };
     pct += p;
     return seg;

@@ -152,6 +152,11 @@ const useGREStore = create((set, get) => ({
     if (guest.hall !== state.currentEvent.hall) {
       return { status: 'blocked', guest, reason: `This QR is for ${guest.hall} — you are checking in ${state.currentEvent.hall}` };
     }
+    
+    // Enforce Event Capacity bounds
+    if (state.checkedIn.size >= state.currentEvent.expectedCount) {
+      return { status: 'blocked', guest, reason: `Maximum event capacity (${state.currentEvent.expectedCount}) reached.` };
+    }
 
     const now = new Date().toISOString();
     const newGuests = new Map(state.guests);
@@ -197,32 +202,57 @@ const useGREStore = create((set, get) => ({
   /* ── walk-in ── */
   addWalkIn: (walkInData, staffId, staffName) => {
     const state = get();
-    if (state.walkIns.length >= state.walkInLimit) return { ok: false, reason: 'Walk-in limit reached' };
+    const count = parseInt(walkInData.guestCount) || 1;
 
-    const id = `walkin_${Date.now()}`;
-    const guest = {
-      id, name: walkInData.name, phone: walkInData.phone || '',
-      bookingRef: `WI-${Date.now().toString(36).toUpperCase()}`,
-      table: walkInData.table || 'Unassigned', seat: walkInData.seat || '',
-      isVIP: false, dietaryFlag: walkInData.dietaryFlag || null,
-      isWalkIn: true, checkedInAt: new Date().toISOString(),
-      checkedInBy: staffId, checkedInByName: staffName,
-      hall: state.currentEvent.hall, eventId: state.currentEvent.id,
-    };
+    // Check strict event capacity limit
+    if (state.checkedIn.size + count > state.currentEvent.expectedCount) {
+      const remaining = Math.max(0, state.currentEvent.expectedCount - state.checkedIn.size);
+      return { ok: false, reason: `Exceeds max capacity. Only ${remaining} space(s) remain.` };
+    }
+
+    // Walk-in pseudo-limit check
+    if (state.walkIns.length + count > state.walkInLimit) {
+      return { ok: false, reason: 'Walk-in overall limit reached' };
+    }
 
     const newGuests = new Map(state.guests);
-    newGuests.set(id, guest);
     const newCheckedIn = new Set(state.checkedIn);
-    newCheckedIn.add(id);
+    const newWalkIns = [...state.walkIns];
+    const newArrivals = [...state.arrivalTimestamps];
+    let leadGuest = null;
+
+    for (let i = 0; i < count; i++) {
+      const id = `walkin_${Date.now()}_${i}`;
+      const displayedName = count > 1 && i > 0 ? `${walkInData.name} (+${i})` : walkInData.name;
+      
+      const guest = {
+        id, name: displayedName, phone: walkInData.phone || '',
+        bookingRef: `WI-${Date.now().toString(36).toUpperCase()}`,
+        table: walkInData.table || 'Unassigned', seat: walkInData.seat || '',
+        isVIP: false, dietaryFlag: walkInData.dietaryFlag || null,
+        isWalkIn: true, checkedInAt: new Date().toISOString(),
+        checkedInBy: staffId, checkedInByName: staffName,
+        hall: state.currentEvent.hall, eventId: state.currentEvent.id,
+      };
+
+      if (i === 0) leadGuest = guest;
+      
+      newGuests.set(id, guest);
+      newCheckedIn.add(id);
+      newWalkIns.push(guest);
+      newArrivals.push(Date.now());
+    }
 
     set(s => ({
       guests: newGuests,
       checkedIn: newCheckedIn,
-      walkIns: [...s.walkIns, guest],
-      arrivalTimestamps: [...s.arrivalTimestamps, Date.now()],
+      walkIns: newWalkIns,
+      arrivalTimestamps: newArrivals,
     }));
-    get().addAuditEntry('add_walk_in', staffId, staffName, { guestId: id, guestName: guest.name });
-    return { ok: true, guest };
+    
+    get().addAuditEntry('add_walk_in', staffId, staffName, { guestName: walkInData.name, partySize: count });
+    get().checkAutoThresholds();
+    return { ok: true, guest: leadGuest };
   },
 
   /* ── kitchen push ── */

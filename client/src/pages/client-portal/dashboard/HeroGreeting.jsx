@@ -22,25 +22,35 @@ function Countdown({ targetDate }) {
     const ms = validDate - new Date();
     return isFinite(ms) && ms > 0 ? Math.floor(ms / 1000) : 0;
   };
+
   const [secs, setSecs] = useState(getRemaining);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     setSecs(getRemaining());
     const id = setInterval(() => setSecs(prev => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(id);
-  }, [targetDate]); // eslint-disable-line react-hooks/exhaustive-deps
-  const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600),
-        m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  }, [targetDate]);
+
+  const d = Math.floor(secs / 86400),
+        h = Math.floor((secs % 86400) / 3600),
+        m = Math.floor((secs % 3600) / 60),
+        s = secs % 60;
+
   const pad = n => String(n).padStart(2, '0');
+
   return (
     <div className="flex gap-2 justify-center md:justify-start flex-wrap">
       {[['Days', pad(d)], ['Hours', pad(h)], ['Min', pad(m)], ['Sec', pad(s)]].map(([l, v]) => (
         <div key={l} className="text-center">
-          <div className="font-serif text-4xl md:text-5xl lg:text-6xl font-black text-[#C9A84C] leading-none px-3 py-2 rounded-xl min-w-[56px]"
-            style={{ background:'rgba(201,168,76,0.12)', border:'1px solid rgba(201,168,76,0.25)' }}>
+          <div
+            className="font-serif text-4xl md:text-5xl lg:text-6xl font-black text-[#C9A84C] leading-none px-3 py-2 rounded-xl min-w-[56px]"
+            style={{ background:'rgba(201,168,76,0.12)', border:'1px solid rgba(201,168,76,0.25)' }}
+          >
             {v}
           </div>
-          <div className="text-[9px] text-[#6B5520] tracking-[0.12em] uppercase mt-1">{l}</div>
+          <div className="text-[9px] text-[#6B5520] tracking-[0.12em] uppercase mt-1">
+            {l}
+          </div>
         </div>
       ))}
     </div>

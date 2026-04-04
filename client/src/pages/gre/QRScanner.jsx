@@ -438,14 +438,22 @@ export default function QRScanner() {
             </div>
           )}
 
-          {/* Can't scan? */}
-          <button style={{
-            width: '100%', padding: 12, background: 'none', border: 'none',
-            color: 'rgba(255,255,255,.5)', fontSize: 13, cursor: 'pointer',
-            textDecoration: 'underline', textUnderlineOffset: 3,
-          }} onClick={() => setManualOpen(true)}>
-            Can't scan? Search manually
-          </button>
+          {/* Bottom Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 24px' }}>
+            <button style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,.8)',
+              fontSize: 14, cursor: 'pointer', textDecoration: 'none', fontWeight: 500,
+              display: 'flex', alignItems: 'center', gap: 6
+            }} onClick={() => navigate('/gre/walkin')}>
+              <Icon d="M12 5v14M5 12h14" size={16} /> Add Walk-In
+            </button>
+            <button style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,.5)',
+              fontSize: 14, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3
+            }} onClick={() => setManualOpen(true)}>
+              Search manually
+            </button>
+          </div>
         </div>
       </div>
 

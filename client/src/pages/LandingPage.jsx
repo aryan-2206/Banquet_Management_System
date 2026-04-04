@@ -73,7 +73,7 @@ function Navbar({ active, setActive }) {
             <span className="font-['Cormorant_Garamond'] text-xl font-700 text-[#F5F0E8] tracking-wide">
               Banquet<span className="gold-shimmer font-bold"> IM</span>
             </span>
-            <div className="text-[10px] text-[#6B5520] tracking-[.2em] uppercase -mt-1">IntelliManager 2026</div>
+            <div className="text-[10px] text-[#6B5520] tracking-[.2em] uppercase -mt-1">AyojanOS 2026</div>
           </div>
         </div>
 
@@ -808,10 +808,10 @@ function Footer() {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#C9A84C] to-[#6B5520] flex items-center justify-center text-[#080810] font-bold text-sm">B</div>
-          <span className="font-['Cormorant_Garamond'] text-[#F5F0E8] font-700">Banquet IntelliManager</span>
+          <span className="font-['Cormorant_Garamond'] text-[#F5F0E8] font-700">Banquet AyojanOS 2026</span>
         </div>
         <p className="text-[#4A4840] text-xs tracking-wide">
-          Built for HackNiche 4.0 · MERN + Redis + Tailwind · WhatsApp Business API
+          Built for AyojanOS · MERN + Redis + Tailwind · WhatsApp Business API
         </p>
         <div className="flex gap-4 text-[#4A4840] text-xs">
           {['Privacy', 'Terms', 'API Docs', 'Support'].map(l => (

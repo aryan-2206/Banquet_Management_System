@@ -533,7 +533,7 @@ function Footer() {
         <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#C9A84C,#6B5520)', display:'flex', alignItems:'center', justifyContent:'center', color:'#080810', fontWeight:700, fontSize:13 }}>B</div>
         <span style={{ fontFamily:"'Cormorant Garamond',serif", color:'#F5F0E8', fontWeight:700, fontSize:18 }}>Banquet IntelliManager</span>
       </div>
-      <p style={{ color:'#4A4840', fontSize:11, letterSpacing:'0.05em' }}>Built for HackNiche 4.0 · MERN + Redis + Tailwind · WhatsApp Business API</p>
+      <p style={{ color:'#4A4840', fontSize:11, letterSpacing:'0.05em' }}>Built for AyojanOS · MERN + Redis + Tailwind · WhatsApp Business API</p>
       <div style={{ display:'flex', gap:20 }}>
         {['Privacy','Terms','API Docs','Support'].map(l => (
           <a key={l} href="#" style={{ color:'#4A4840', fontSize:12, textDecoration:'none', transition:'color .2s' }}

@@ -29,7 +29,7 @@ export default function WalkInForm() {
     e.preventDefault();
     if (!name.trim()) return;
     const result = addWalkIn(
-      { name: name.trim(), phone, table, dietaryFlag: dietary || null },
+      { name: name.trim(), phone, table, dietaryFlag: dietary || null, guestCount: parseInt(guestCount) || 1 },
       session?.staffId, session?.staffName
     );
     if (result.ok) {

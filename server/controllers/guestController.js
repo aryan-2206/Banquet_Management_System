@@ -89,21 +89,44 @@ const deleteGuest = async (req, res, next) => {
   }
 };
 
-// @desc  Check-in guest (GRE marks them as checked in)
+// @desc  Check-in guest (GRE marks them as checked in) + notifies Kitchen via Socket
 // POST  /api/guests/check-in/:id
 const checkInGuest = async (req, res, next) => {
   try {
     const guest = await Guest.findById(req.params.id);
     if (!guest) return res.status(404).json({ success: false, message: 'Guest not found' });
 
-    guest.status = 'checked-in';
+    guest.status    = 'checked-in';
     guest.checkInTime = new Date();
     await guest.save();
 
+    // Count total checked-in for this booking to push real-time to Kitchen
+    const arrivedCount = await Guest.countDocuments({
+      booking: guest.booking,
+      status: 'checked-in',
+    });
+
+    // Get expected pax from the associated booking
+    const booking = await Booking.findById(guest.booking).select('eventDetails.guests').lean();
+    const expectedPax = booking?.eventDetails?.guests || 0;
+
+    // 🔌 Emit to /kitchen namespace — Kitchen Dashboard updates headcount instantly
+    const io = req.app.get('io');
+    if (io) {
+      io.of('/kitchen').emit('headcount:update', {
+        bookingId: guest.booking.toString(),
+        arrived:   arrivedCount,
+        expected:  expectedPax,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
     res.json({
       success: true,
-      message: 'Guest checked in',
-      guest
+      message: `Guest checked in. ${arrivedCount}/${expectedPax} arrived.`,
+      guest,
+      arrived: arrivedCount,
+      expected: expectedPax,
     });
   } catch (err) {
     next(err);
@@ -111,3 +134,4 @@ const checkInGuest = async (req, res, next) => {
 };
 
 module.exports = { getGuestList, addGuestsBatch, updateGuest, deleteGuest, checkInGuest };
+

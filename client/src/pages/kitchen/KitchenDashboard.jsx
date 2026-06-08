@@ -72,13 +72,32 @@ export default function KitchenDashboard() {
   const [sFilter, setSFilter] = useState("all");
   const [queue, setQueue] = useState(PREP_QUEUE);
 
-  const events = useKitchenStore(s => s.events);
-  const loading = useKitchenStore(s => s.loading);
-  const fetchEvents = useKitchenStore(s => s.fetchEvents);
+  const events         = useKitchenStore(s => s.events);
+  const loading        = useKitchenStore(s => s.loading);
+  const fetchEvents    = useKitchenStore(s => s.fetchEvents);
+  const connectSocket  = useKitchenStore(s => s.connectSocket);
+  const disconnectSocket = useKitchenStore(s => s.disconnectSocket);
+  const stockItems     = useKitchenStore(s => s.stockItems);
+  const fetchStock     = useKitchenStore(s => s.fetchStock);
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+    fetchStock();
+    connectSocket();
+    return () => disconnectSocket();
+  }, [fetchEvents, fetchStock, connectSocket, disconnectSocket]);
+
+  // Derive stock display: use API data if available, else fall back to STOCK_ITEMS
+  const displayStock = stockItems.length > 0
+    ? stockItems.map(item => ({
+        id:       item._id,
+        name:     item.name,
+        unit:     item.unit || 'kg',
+        current:  item.quantity,
+        required: item.minQuantity || item.quantity,
+        category: item.category || 'General',
+      }))
+    : STOCK_ITEMS;
 
   useEffect(() => {
     if (events && events.length > 0) {
@@ -87,19 +106,19 @@ export default function KitchenDashboard() {
           const allDishes = resps.flatMap((dishes, idx) => dishes.map(d => {
             const statusMap = {
               "Pending": "pending",
-              "Active": "active",
-              "Served": "done",
-              "Closed": "done"
+              "Active":  "active",
+              "Served":  "done",
+              "Closed":  "done"
             };
             return {
-              id: d._id,
-              dish: d.name,
-              event: events[idx].name,
+              id:      d._id,
+              dish:    d.name,
+              event:   events[idx].name,
               station: d.course,
-              status: statusMap[d.status] || "pending",
-              chef: "Kitchen Team",
-              eta: "TBD",
-              urgent: d.isUrgent || false
+              status:  statusMap[d.status] || "pending",
+              chef:    "Kitchen Team",
+              eta:     "TBD",
+              urgent:  d.isUrgent || false
             };
           }));
           if (allDishes.length > 0) {
@@ -115,10 +134,10 @@ export default function KitchenDashboard() {
   const cPax = useCountup(totalPax);
   const cArrived = useCountup(totalArrived);
   const cActive = useCountup(queue.filter(p => p.status === "active").length);
-  const cLow = useCountup(STOCK_ITEMS.filter(i => stockLevel(i).status !== "ok").length);
+  const cLow = useCountup(displayStock.filter(i => stockLevel(i).status !== "ok").length);
 
   const filteredQ = queue.filter(p => qFilter === "all" || p.status === qFilter);
-  const filteredS = STOCK_ITEMS.filter(i => sFilter === "all" || stockLevel(i).status === sFilter);
+  const filteredS = displayStock.filter(i => sFilter === "all" || stockLevel(i).status === sFilter);
 
   const now = new Date();
 

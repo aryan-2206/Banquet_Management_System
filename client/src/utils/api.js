@@ -43,6 +43,23 @@ updateDishStatus: (id, status)  => request(`/dishes/${id}/status`, { method: 'PA
   getKitchenEvents: ()            => request('/kitchen/events'),
   getLiveHeadcount: (id)          => request(`/kitchen/live-pax/${id}`),
 
+  // Stock
+  getStock: (params = '')         => request(`/stock${params}`),
+  getStockAlerts: ()              => request('/stock/alerts'),
+  adjustStock: (id, body)         => request(`/stock/${id}/quantity`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // PrepQueue
+  getPrepQueue: (params = '')     => request(`/prepqueue${params}`),
+  createPrepTask: (body)          => request('/prepqueue', { method: 'POST', body: JSON.stringify(body) }),
+  updateTaskStatus: (id, status)  => request(`/prepqueue/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  toggleUrgent: (id)              => request(`/prepqueue/${id}/urgent`, { method: 'PATCH' }),
+  deletePrepTask: (id)            => request(`/prepqueue/${id}`, { method: 'DELETE' }),
+
+  // AI
+  getInsights: ()                 => request('/ai/insights'),
+  getMenuSuggestions: (params = '') => request(`/ai/menu-suggestions${params}`),
+  getPostMortem: (bookingId)      => request(`/ai/post-mortem/${bookingId}`),
+
   // Health
   health: ()                      => request('/health'),
 };

@@ -6,17 +6,22 @@ const { CORS_ORIGIN } = require('./config/env');
 const errorHandler = require('./middleware/errorHandler');
 
 // Route imports
-const authRoutes      = require('./routes/auth');
-const bookingRoutes   = require('./routes/bookings');
-const paymentRoutes   = require('./routes/payments');
-const guestRoutes     = require('./routes/guests');
-const menuRoutes      = require('./routes/menu');
-const kitchenRoutes   = require('./routes/kitchen');
-const whatsappRoutes  = require('./routes/whatsapp');
-const aiRoutes        = require('./routes/ai');
-const reportRoutes    = require('./routes/reports');
-const eventGalleryRoutes=require('./routes/eventGallery');
-const qrRoutes        = require('./routes/qr');
+const authRoutes         = require('./routes/auth');
+const bookingRoutes      = require('./routes/bookings');
+const paymentRoutes      = require('./routes/payments');
+const guestRoutes        = require('./routes/guests');
+const menuRoutes         = require('./routes/menu');
+const kitchenRoutes      = require('./routes/kitchen');
+const whatsappRoutes     = require('./routes/whatsapp');
+const aiRoutes           = require('./routes/ai');
+const reportRoutes       = require('./routes/reports');
+const eventGalleryRoutes = require('./routes/eventGallery');
+const qrRoutes           = require('./routes/qr');
+const dishRoutes         = require('./routes/dishRoutes');
+const stockRoutes        = require('./routes/stockRoutes');
+const prepqueueRoutes    = require('./routes/prepqueueRoutes');
+const eventRoutes        = require('./routes/eventRoutes');
+const wastelogRoutes     = require('./routes/wastelogRoutes');
 const app = express();
 
 // ── Middleware ──────────────────────────────────────────────
@@ -46,10 +51,23 @@ app.use('/api/ai',        aiRoutes);
 app.use('/api/reports',   reportRoutes);
 app.use('/api/events',    eventGalleryRoutes);
 app.use('/api/qr',        qrRoutes);
+app.use('/api/dishes',    dishRoutes);
+app.use('/api/stock',     stockRoutes);
+app.use('/api/prepqueue', prepqueueRoutes);
+app.use('/api/event',     eventRoutes);
+app.use('/api/wastelogs', wastelogRoutes);
 
 // ── 404 handler ─────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.method} ${req.url} not found` });
+});
+
+// ── CastError (invalid MongoDB ObjectId) ────────────────────
+app.use((err, req, res, next) => {
+  if (err.name === 'CastError' && err.kind === 'ObjectId') {
+    return res.status(400).json({ success: false, message: `Invalid ID format: ${err.value}` });
+  }
+  next(err);
 });
 
 // ── Global error handler ────────────────────────────────────

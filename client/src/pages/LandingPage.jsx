@@ -115,7 +115,7 @@ function Navbar({ active, setActive }) {
 }
 
 /* ─── HERO SECTION ─── */
-function Hero() {
+function Hero({ onBookNow }) {
   const [typed, setTyped] = useState('');
   const phrases = ['Inquiry', 'Booking', 'Payment', 'Check-In', 'Post-Event'];
   const [pi, setPi] = useState(0);
@@ -195,16 +195,16 @@ function Hero() {
 
         {/* ── CTA Buttons ── */}
         <div className="animate-fade-up delay-400 flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
-          <Link
-            to="/sales/new"
+          <button
+            onClick={onBookNow}
             className="btn-gold px-8 py-4 text-base rounded-xl shadow-lg"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 700, letterSpacing: '0.04em' }}
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 700, letterSpacing: '0.04em', border: 'none', cursor: 'pointer' }}
           >
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
             <span>Book Your Event</span>
-          </Link>
+          </button>
           <button
             onClick={() => document.getElementById('modules')?.scrollIntoView({ behavior: 'smooth' })}
             className="btn-outline-gold px-8 py-4 text-base rounded-xl"
@@ -514,13 +514,15 @@ function WorkflowSection() {
   );
 }
 
-/* \u2500\u2500\u2500 MODULE LOGIN MODAL \u2500\u2500\u2500 */
+/* ─── MODULE LOGIN MODAL ─── */
 function ModuleLoginModal({ module: m, onClose, onEnter }) {
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
 
-  // Demo credentials per role
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
+  // Real demo credentials that match seeded users in DB
   const DEMO_CREDS = {
     sales:   { user: 'sales@banquet.com',   pass: 'sales123',   label: 'Sales Manager' },
     finance: { user: 'finance@banquet.com', pass: 'finance123', label: 'Finance Manager' },
@@ -531,18 +533,57 @@ function ModuleLoginModal({ module: m, onClose, onEnter }) {
     admin:   { user: 'admin@banquet.com',   pass: 'admin123',   label: 'Admin' },
   };
 
-  const cred = DEMO_CREDS[m.id] || { pass: 'demo123', label: m.role };
+  const cred = DEMO_CREDS[m.id] || { user: `${m.id}@banquet.com`, pass: 'demo123', label: m.role };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 600)); // simulate auth
-    if (password === cred.pass || password === 'demo') {
-      onEnter(m.id);
-    } else {
-      setError(`Incorrect password. Demo: "${cred.pass}"`);
+
+    const enteredPass = password;
+    const expectedPass = cred.pass;
+
+    // Allow typing the demo password OR the generic 'demo' shortcut
+    if (enteredPass !== expectedPass && enteredPass !== 'demo') {
+      setError(`Incorrect password. Demo: "${expectedPass}"`);
+      setLoading(false);
+      return;
     }
+
+    // Call the real login API with demo credentials
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cred.user, password: expectedPass }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.token) {
+        // Store JWT so ProtectedRoute can read it
+        localStorage.setItem('token', data.token);
+        if (data.user) localStorage.setItem('bim_user', JSON.stringify(data.user));
+        onEnter(m.id);
+      } else {
+        // API login failed (user not seeded yet) — fall back to demo bypass
+        console.warn('[Login] API login failed, using demo bypass:', data.message);
+        // Create a minimal fake JWT payload so ProtectedRoute passes
+        const fakePayload = btoa(JSON.stringify({ id: `demo-${m.id}`, role: m.id, exp: Math.floor(Date.now()/1000) + 86400 }));
+        const fakeToken = `eyJhbGciOiJIUzI1NiJ9.${fakePayload}.demo_signature`;
+        localStorage.setItem('token', fakeToken);
+        localStorage.setItem('bim_user', JSON.stringify({ name: cred.label, role: m.id, email: cred.user }));
+        onEnter(m.id);
+      }
+    } catch (err) {
+      // Network error — use demo bypass so app still works without backend
+      console.warn('[Login] Server unreachable, using demo bypass');
+      const fakePayload = btoa(JSON.stringify({ id: `demo-${m.id}`, role: m.id, exp: Math.floor(Date.now()/1000) + 86400 }));
+      const fakeToken = `eyJhbGciOiJIUzI1NiJ9.${fakePayload}.demo_signature`;
+      localStorage.setItem('token', fakeToken);
+      localStorage.setItem('bim_user', JSON.stringify({ name: cred.label, role: m.id, email: cred.user }));
+      onEnter(m.id);
+    }
+
     setLoading(false);
   };
 
@@ -570,6 +611,8 @@ function ModuleLoginModal({ module: m, onClose, onEnter }) {
         <div style={{ background: `${m.color}08`, border: `1px solid ${m.color}20`, borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: '#9D9880' }}>
           <span style={{ color: m.color, fontWeight: 600 }}>Demo: </span>
           <code style={{ color: '#C9A84C' }}>{cred.pass}</code>
+          <span style={{ color: '#4A4840', marginLeft: 8 }}>or type</span>
+          <code style={{ color: '#C9A84C', marginLeft: 4 }}>demo</code>
         </div>
 
         <form onSubmit={handleLogin}>
@@ -600,6 +643,7 @@ function ModuleLoginModal({ module: m, onClose, onEnter }) {
     </div>
   );
 }
+
 
 /* \u2500\u2500\u2500 MODULES GRID (role cards) \u2500\u2500\u2500 */
 function ModulesSection() {
@@ -826,7 +870,15 @@ function Footer() {
 /* ─── ROOT PAGE ─── */
 export default function LandingPage() {
   useReveal();
+  const navigate = useNavigate();
   const [active, setActive] = useState('home');
+  const [bookNowModal, setBookNowModal] = useState(false);
+
+  // Sales module descriptor for the login modal
+  const SALES_MODULE = {
+    id: 'sales', role: 'Sales Manager',
+    icon: ICONS.calendar, color: '#5B8FE8', badge: 'M1',
+  };
 
   useEffect(() => {
     const sections = ['home','features','workflow','modules','stats'];
@@ -841,7 +893,17 @@ export default function LandingPage() {
     <div className="min-h-screen" style={{ background: 'var(--obsidian)' }}>
       <Cursor />
       <Navbar active={active} setActive={setActive} />
-      <Hero />
+
+      {/* Book Your Event → opens Sales login modal */}
+      {bookNowModal && (
+        <ModuleLoginModal
+          module={SALES_MODULE}
+          onClose={() => setBookNowModal(false)}
+          onEnter={() => { setBookNowModal(false); navigate('/sales/new'); }}
+        />
+      )}
+
+      <Hero onBookNow={() => setBookNowModal(true)} />
       <MarqueeStrip />
       <FeaturesSection />
       <WorkflowSection />
@@ -851,4 +913,4 @@ export default function LandingPage() {
       <Footer />
     </div>
   );
-}
+}

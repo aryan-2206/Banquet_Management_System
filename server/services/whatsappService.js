@@ -1,9 +1,19 @@
 const twilio = require('twilio');
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Lazy client — only created when a message is actually being sent.
+// This prevents server crash at startup if TWILIO_ACCOUNT_SID is not yet configured.
+let _client = null;
+function getClient() {
+  if (_client) return _client;
+  const sid   = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !sid.startsWith('AC')) {
+    throw new Error('[WhatsApp] TWILIO_ACCOUNT_SID is not set or invalid. Set it in server/.env');
+  }
+  _client = twilio(sid, token);
+  return _client;
+}
+
 const FROM = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
 
 /**
@@ -70,7 +80,7 @@ Hi ${clientName}! Your event enquiry has been created successfully.
 For queries, reply here or call us. Thank you! 🙏`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getClient().messages.create({
       from: FROM,
       to: toWhatsApp(clientPhone),
       body,
@@ -100,7 +110,7 @@ Please arrange the payment at the earliest to avoid any inconvenience to your bo
 Thank you! 🎊`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getClient().messages.create({
       from: FROM,
       to: toWhatsApp(clientPhone),
       body,
@@ -128,7 +138,7 @@ Your booking has been updated accordingly. We look forward to hosting your event
 For any queries, feel free to reply here.`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getClient().messages.create({
       from: FROM,
       to: toWhatsApp(clientPhone),
       body,
@@ -178,7 +188,7 @@ See you at the event! 🎉`;
       msgOptions.mediaUrl = [qrImageUrl];
     }
 
-    const msg = await client.messages.create(msgOptions);
+    const msg = await getClient().messages.create(msgOptions);
     console.log(`✅ [WhatsApp] QR Code sent to ${guestPhone} | SID: ${msg.sid}`);
     return { success: true, sid: msg.sid };
   } catch (err) {
@@ -187,4 +197,122 @@ See you at the event! 🎉`;
   }
 }
 
-module.exports = { sendInstallmentPlan, sendReminder, sendPaymentConfirmation, sendQRCode };
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. Enquiry Confirmation (sent when landing page enquiry form submitted)
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendEnquiryConfirmation(clientPhone, data) {
+  const { clientName, eventType, eventDate, venue, pax, enquiryId } = data;
+
+  const body = `🎊 *Enquiry Received!* – ${enquiryId || 'BIM'}
+
+Hi ${clientName}! Thank you for reaching out to *Banquet IntelliManager*.
+
+We've received your event enquiry and our Sales Manager will contact you within 24 hours.
+
+📋 *Your Enquiry Summary:*
+📅 Event: ${eventType || 'Event'}
+📆 Date: ${eventDate ? fmtDate(eventDate) : 'TBD'}
+🏛 Venue: ${venue || 'To be selected'}
+👥 Guests: ${pax || 'TBD'}
+
+━━━━━━━━━━━━━━━━━━━
+We'll send you a detailed proposal with our packages and pricing shortly.
+
+For urgent queries, reply here and our team will assist you. 🙏`;
+
+  try {
+    const msg = await getClient().messages.create({
+      from: FROM,
+      to: toWhatsApp(clientPhone),
+      body,
+    });
+    console.log(`✅ [WhatsApp] Enquiry confirmation sent to ${clientPhone} | SID: ${msg.sid}`);
+    return { success: true, sid: msg.sid };
+  } catch (err) {
+    console.error(`❌ [WhatsApp] Enquiry confirmation failed for ${clientPhone}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Guest QR + DJ Room Code (sent to each invited guest after full payment)
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendGuestQRWithDJCode(guestPhone, data) {
+  const { guestName = 'Guest', eventName, eventDate, venue, djRoomCode, qrImageUrl } = data;
+
+  const body = `🎟️ *Your Entry Pass – ${eventName}*
+
+Hi ${guestName}! You've been invited to *${eventName}* on ${fmtDate(eventDate)} at *${venue}*.
+
+━━━━━━━━━━━━━━━━━━━
+📲 *Entry QR Code:*
+Show the image above at the entry gate. Each QR is unique — do not share it.
+━━━━━━━━━━━━━━━━━━━
+
+🎵 *Join the DJ Room:*
+Want to request songs on the event day? Join the live music queue:
+
+🔑 *Room Code:* \`${djRoomCode}\`
+
+Open the event app → DJ tab → Enter code *${djRoomCode}* to join.
+
+See you there! 🎉`;
+
+  try {
+    const msgOptions = {
+      from: FROM,
+      to:   toWhatsApp(guestPhone),
+      body,
+    };
+    if (qrImageUrl) msgOptions.mediaUrl = [qrImageUrl];
+
+    const msg = await getClient().messages.create(msgOptions);
+    console.log(`✅ [WhatsApp] Guest QR + DJ code sent to ${guestPhone} | SID: ${msg.sid}`);
+    return { success: true, sid: msg.sid };
+  } catch (err) {
+    console.error(`❌ [WhatsApp] Guest QR send failed for ${guestPhone}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. Ask Client for Guest List (sent after full payment received)
+// ─────────────────────────────────────────────────────────────────────────────
+async function askForGuestList(clientPhone, data) {
+  const { clientName, enquiryId, eventName } = data;
+
+  const body = `🎉 *Full Payment Confirmed!* – ${enquiryId}
+
+Hi ${clientName}! Your booking for *${eventName}* is now fully settled. We look forward to hosting you! 🙏
+
+━━━━━━━━━━━━━━━━━━━
+📋 *Guest Entry QR Codes*
+━━━━━━━━━━━━━━━━━━━
+
+To send entry QR codes to your guests, please reply with their mobile numbers (Indian format, one per line or comma-separated):
+
+_Example:_
+9876543210
+8765432109, 7654321098
+
+We'll send a personalized QR entry pass and DJ room code to each number. 🎊`;
+
+  try {
+    const msg = await getClient().messages.create({ from: FROM, to: toWhatsApp(clientPhone), body });
+    console.log(`✅ [WhatsApp] Guest list request sent to ${clientPhone} | SID: ${msg.sid}`);
+    return { success: true, sid: msg.sid };
+  } catch (err) {
+    console.error(`❌ [WhatsApp] Guest list request failed for ${clientPhone}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = {
+  sendInstallmentPlan,
+  sendReminder,
+  sendPaymentConfirmation,
+  sendQRCode,
+  sendEnquiryConfirmation,
+  sendGuestQRWithDJCode,
+  askForGuestList,
+};

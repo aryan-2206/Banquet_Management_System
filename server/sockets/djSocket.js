@@ -1,62 +1,147 @@
 /**
- * DJ Socket — handles real-time song request queue
- * Emits to all connected clients in the 'dj' room
+ * DJ Socket — event-scoped real-time song request queue
+ *
+ * Each event has its own isolated room: `dj:${eventId}`
+ * Different events = different queues, fully independent.
+ * The DJ and guests for event X cannot see or affect event Y.
+ *
+ * Events:
+ *  Client → Server:
+ *    joinRoom        { eventId, role: 'dj'|'guest', guestName }
+ *    request:add     { eventId, song, artist, requestedBy, genre, vibe, duration }
+ *    request:vote    { eventId, requestId }
+ *    request:remove  { eventId, requestId }       (DJ only)
+ *    nowPlaying:update { eventId, ...songData }    (DJ only)
+ *
+ *  Server → Client:
+ *    queue:sync      { queue, nowPlaying }         (on join)
+ *    queue:update    { queue, newRequest? }
+ *    nowPlaying:sync { ...songData }
+ *    room:info       { eventId, memberCount }
  */
 module.exports = (io) => {
   const djNamespace = io.of('/dj');
 
-  // In-memory queue (would be persisted to Redis in production)
-  let queue = [];
-  let nowPlaying = null;
+  // Per-room state: { [eventId]: { queue: [], nowPlaying: null } }
+  const rooms = {};
+
+  function getRoom(eventId) {
+    if (!rooms[eventId]) {
+      rooms[eventId] = { queue: [], nowPlaying: null };
+    }
+    return rooms[eventId];
+  }
 
   djNamespace.on('connection', (socket) => {
-    console.log(`🎵 DJ client connected: ${socket.id}`);
+    console.log(`🎵 DJ socket connected: ${socket.id}`);
 
-    // Send current state to newly connected client
-    socket.emit('queue:sync', { queue, nowPlaying });
+    let currentEventId = null; // track which room this socket is in
 
-    // Guest sends a song request
-    socket.on('request:add', (data) => {
-      const request = {
-        id: `req-${Date.now()}`,
-        song: data.song,
-        artist: data.artist,
-        requestedBy: data.requestedBy || 'Guest',
-        genre: data.genre || 'Other',
-        vibe: data.vibe || 'fun',
-        duration: data.duration || '3:30',
-        votes: 1,
-        timestamp: new Date().toISOString(),
-      };
-      queue.push(request);
-      queue.sort((a, b) => b.votes - a.votes);
-      djNamespace.emit('queue:update', { queue, newRequest: request });
+    /* ── JOIN ROOM ─────────────────────────────────────── */
+    socket.on('joinRoom', ({ eventId, role = 'guest', guestName = 'Guest' }) => {
+      if (!eventId) return;
+
+      // Leave previous room if switching
+      if (currentEventId && currentEventId !== eventId) {
+        socket.leave(`dj:${currentEventId}`);
+      }
+
+      currentEventId = eventId;
+      socket.join(`dj:${eventId}`);
+
+      const room = getRoom(eventId);
+      console.log(`🎵 [DJ] ${role} "${guestName}" joined room dj:${eventId}`);
+
+      // Send current state to the newly joined client
+      socket.emit('queue:sync', { queue: room.queue, nowPlaying: room.nowPlaying });
+
+      // Broadcast updated member count
+      const memberCount = djNamespace.adapter.rooms.get(`dj:${eventId}`)?.size || 1;
+      djNamespace.to(`dj:${eventId}`).emit('room:info', { eventId, memberCount });
     });
 
-    // Guest votes for a song
-    socket.on('request:vote', ({ requestId }) => {
-      const req = queue.find((r) => r.id === requestId);
+    /* ── ADD SONG REQUEST ──────────────────────────────── */
+    socket.on('request:add', (data) => {
+      const eventId = data.eventId || currentEventId;
+      if (!eventId) return;
+
+      const room = getRoom(eventId);
+      const request = {
+        id:          `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        song:        data.song        || 'Unknown Song',
+        artist:      data.artist      || 'Unknown Artist',
+        requestedBy: data.requestedBy || 'Guest',
+        genre:       data.genre       || 'Other',
+        vibe:        data.vibe        || 'fun',
+        duration:    data.duration    || '3:30',
+        votes:       1,
+        timestamp:   new Date().toISOString(),
+      };
+
+      room.queue.push(request);
+      room.queue.sort((a, b) => b.votes - a.votes);
+
+      djNamespace.to(`dj:${eventId}`).emit('queue:update', {
+        queue: room.queue,
+        newRequest: request,
+      });
+
+      console.log(`🎵 [DJ:${eventId}] New request: "${request.song}" by ${request.requestedBy}`);
+    });
+
+    /* ── VOTE FOR A SONG ───────────────────────────────── */
+    socket.on('request:vote', ({ eventId, requestId }) => {
+      const eid = eventId || currentEventId;
+      if (!eid) return;
+
+      const room = getRoom(eid);
+      const req  = room.queue.find(r => r.id === requestId);
       if (req) {
         req.votes += 1;
-        queue.sort((a, b) => b.votes - a.votes);
-        djNamespace.emit('queue:update', { queue });
+        room.queue.sort((a, b) => b.votes - a.votes);
+        djNamespace.to(`dj:${eid}`).emit('queue:update', { queue: room.queue });
       }
     });
 
-    // DJ removes a song from queue
-    socket.on('request:remove', ({ requestId }) => {
-      queue = queue.filter((r) => r.id !== requestId);
-      djNamespace.emit('queue:update', { queue });
+    /* ── REMOVE SONG (DJ only) ─────────────────────────── */
+    socket.on('request:remove', ({ eventId, requestId }) => {
+      const eid = eventId || currentEventId;
+      if (!eid) return;
+
+      const room = getRoom(eid);
+      room.queue  = room.queue.filter(r => r.id !== requestId);
+      djNamespace.to(`dj:${eid}`).emit('queue:update', { queue: room.queue });
     });
 
-    // DJ updates now playing
-    socket.on('nowPlaying:update', (song) => {
-      nowPlaying = song;
-      djNamespace.emit('nowPlaying:sync', nowPlaying);
+    /* ── UPDATE NOW PLAYING (DJ only) ──────────────────── */
+    socket.on('nowPlaying:update', (songData) => {
+      const eid = songData.eventId || currentEventId;
+      if (!eid) return;
+
+      const room    = getRoom(eid);
+      room.nowPlaying = songData;
+      djNamespace.to(`dj:${eid}`).emit('nowPlaying:sync', room.nowPlaying);
+      console.log(`🎵 [DJ:${eid}] Now playing: "${songData.song}"`);
     });
 
+    /* ── GET ROOM STATE ────────────────────────────────── */
+    socket.on('getState', ({ eventId }) => {
+      const eid = eventId || currentEventId;
+      if (!eid) return;
+      const room = getRoom(eid);
+      socket.emit('queue:sync', { queue: room.queue, nowPlaying: room.nowPlaying });
+    });
+
+    /* ── DISCONNECT ────────────────────────────────────── */
     socket.on('disconnect', () => {
-      console.log(`🎵 DJ client disconnected: ${socket.id}`);
+      console.log(`🎵 DJ socket disconnected: ${socket.id}`);
+      if (currentEventId) {
+        const memberCount = (djNamespace.adapter.rooms.get(`dj:${currentEventId}`)?.size || 1) - 1;
+        djNamespace.to(`dj:${currentEventId}`).emit('room:info', {
+          eventId: currentEventId,
+          memberCount: Math.max(0, memberCount),
+        });
+      }
     });
   });
 };

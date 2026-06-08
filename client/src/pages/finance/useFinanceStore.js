@@ -172,11 +172,90 @@ const useFinanceStore = create((set, get) => ({
 
   initSocket: () => {
     if (!socketInstance) {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-      socketInstance = io(API_BASE.replace('/api', ''));
+      const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001');
+      socketInstance = io(SOCKET_URL, { transports: ['websocket'] });
+
+      // Existing payment was updated (e.g. tranche toggled, record payment, WhatsApp confirmation)
       socketInstance.on('payment:updated', (data) => {
-        console.log('Socket payment updated:', data);
-        get().fetchPayments();
+        console.log('Socket payment:updated', data);
+        // Optimistically update the specific payment's status in the local list
+        set(s => ({
+          bookings: s.bookings.map(b =>
+            b.id === data.bookingId || b.bookingRef === data.bookingRef
+              ? { ...b, status: data.status }
+              : b
+          ),
+          auditLog: [
+            {
+              id: `live-${Date.now()}`,
+              action: 'PAYMENT_VIA_WHATSAPP',
+              actor: data.clientName || 'Client',
+              timestamp: new Date().toISOString(),
+              previousState: null,
+              newState: data.status,
+              bookingRef: data.bookingRef,
+              details: data.tranchePaid
+                ? `${data.tranchePaid} (₹${(data.amountPaid || 0).toLocaleString('en-IN')}) confirmed via WhatsApp`
+                : 'Payment confirmed via WhatsApp',
+            },
+            ...s.auditLog,
+          ],
+        }));
+        // Full refresh after 2s to get complete data
+        setTimeout(() => get().fetchPayments(), 2000);
+      });
+
+      // New booking was just created by Sales — add to Finance list in real-time
+      socketInstance.on('booking:created', (data) => {
+        console.log('Socket booking:created', data);
+        // Optimistic prepend with temporary data until next full fetch
+        set(s => ({
+          bookings: [
+            {
+              id:         data.bookingId,
+              bookingRef: data.enquiryId,
+              clientName: data.clientName,
+              eventDate:  data.eventDate
+                ? new Date(data.eventDate).toLocaleDateString('en-IN')
+                : 'TBD',
+              hall:       data.hall   || 'TBD',
+              totalValue: data.totalValue || 0,
+              status:     data.status || 'temporary',
+              installmentPlan: { tranches: [] },
+              payments: [],
+              _isLive: true, // flag for UI highlight
+            },
+            ...s.bookings,
+          ],
+          auditLog: [
+            { id: `live-${Date.now()}`, action: 'NEW_BOOKING_LIVE', actor: 'System',
+              timestamp: new Date().toISOString(), previousState: null, newState: 'temporary',
+              bookingRef: data.enquiryId },
+            ...s.auditLog,
+          ],
+        }));
+        // Full refresh after 2s to get complete data
+        setTimeout(() => get().fetchPayments(), 2000);
+      });
+
+      // QR batch sent — log it in audit
+      socketInstance.on('qr:batch_sent', (data) => {
+        console.log('Socket qr:batch_sent', data);
+        set(s => ({
+          auditLog: [
+            {
+              id: `live-${Date.now()}`,
+              action: 'QR_BATCH_SENT',
+              actor: 'System',
+              timestamp: new Date().toISOString(),
+              previousState: null,
+              newState: 'qr_sent',
+              bookingRef: data.enquiryId,
+              details: `${data.guestCount} guest QR codes dispatched via WhatsApp`,
+            },
+            ...s.auditLog,
+          ],
+        }));
       });
     }
   },

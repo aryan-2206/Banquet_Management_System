@@ -1,4 +1,6 @@
-const Dish = require("../models/Menu");
+const Dish     = require("../models/Menu");
+const mongoose = require("mongoose");
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // GET /api/dishes?eventId=xxx&course=mains&status=Active
 exports.getDishes = async (req, res, next) => {
@@ -15,6 +17,7 @@ exports.getDishes = async (req, res, next) => {
 // GET /api/dishes/:id
 exports.getDishById = async (req, res, next) => {
   try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid dish ID' });
     const dish = await Dish.findById(req.params.id).populate("stockRefs");
     if (!dish) return res.status(404).json({ message: "Dish not found" });
     res.json(dish);
@@ -40,6 +43,7 @@ exports.bulkCreateDishes = async (req, res, next) => {
 // PUT /api/dishes/:id
 exports.updateDish = async (req, res, next) => {
   try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid dish ID' });
     const dish = await Dish.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!dish) return res.status(404).json({ message: "Dish not found" });
     res.json(dish);
@@ -49,7 +53,8 @@ exports.updateDish = async (req, res, next) => {
 // PATCH /api/dishes/:id/status — advance status one step
 exports.advanceDishStatus = async (req, res, next) => {
   try {
-    const { status } = req.body; // Accept explicit status or auto-advance
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid dish ID' });
+    const { status } = req.body;
     const dish = await Dish.findById(req.params.id);
     if (!dish) return res.status(404).json({ message: "Dish not found" });
 
@@ -64,6 +69,7 @@ exports.advanceDishStatus = async (req, res, next) => {
 // PATCH /api/dishes/:id/portions — increment portions served
 exports.updatePortions = async (req, res, next) => {
   try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid dish ID' });
     const { prepared, served } = req.body;
     const update = {};
     if (prepared !== undefined) update["portions.prepared"] = prepared;
@@ -77,8 +83,9 @@ exports.updatePortions = async (req, res, next) => {
 // GET /api/dishes/event/:eventId/summary — course-grouped summary for manifest
 exports.getCourseSummary = async (req, res, next) => {
   try {
+    if (!isValidId(req.params.eventId)) return res.json([]); // graceful for mock IDs
     const summary = await Dish.aggregate([
-      { $match: { eventId: require("mongoose").Types.ObjectId(req.params.eventId) } },
+      { $match: { eventId: new mongoose.Types.ObjectId(req.params.eventId) } },
       {
         $group: {
           _id: "$course",
@@ -96,7 +103,8 @@ exports.getCourseSummary = async (req, res, next) => {
 // DELETE /api/dishes/:id
 exports.deleteDish = async (req, res, next) => {
   try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid dish ID' });
     await Dish.findByIdAndDelete(req.params.id);
     res.json({ message: "Dish deleted" });
   } catch (err) { next(err); }
-};
+};

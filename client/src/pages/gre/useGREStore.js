@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { io as socketIO } from 'socket.io-client';
 
 /* ─── device id (persisted) ─── */
 const DEVICE_ID =
@@ -270,7 +271,21 @@ const useGREStore = create((set, get) => ({
       kitchenPushLog: [pushEvent, ...s.kitchenPushLog],
       lastPushedCount: count,
     }));
-    // Simulate kitchen acknowledgment after 3-8 seconds
+
+    // 🔌 Emit to /kitchen socket namespace (real-time sync)
+    try {
+      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      // Reuse existing connection or create one for push
+      const kitchenSocket = socketIO(`${SOCKET_URL}/kitchen`, { transports: ['websocket'] });
+      kitchenSocket.emit('checkin:update', {
+        bookingId: state.currentEvent.id,
+        arrived:   count,
+        expected:  state.currentEvent.expectedCount,
+      });
+      setTimeout(() => kitchenSocket.disconnect(), 3000);
+    } catch (_) { /* no socket available in demo mode */ }
+
+    // Simulate kitchen acknowledgment after 3-8 seconds (local fallback)
     setTimeout(() => {
       set(s => ({
         kitchenPushLog: s.kitchenPushLog.map(p =>

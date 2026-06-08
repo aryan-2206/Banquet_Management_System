@@ -175,6 +175,12 @@ const BookingSchema = new mongoose.Schema({
   },
   tags: [String],
 
+  // DJ room code — guests use this to join event-specific DJ song request room
+  djRoomCode: { type: String },
+
+  // Set to true after full payment confirmed and guest QR codes have been dispatched
+  guestQRsSent: { type: Boolean, default: false },
+
   // Timestamps
   createdAt: {
     type: Date,

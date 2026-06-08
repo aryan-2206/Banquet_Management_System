@@ -1,6 +1,14 @@
 const Booking = require('../models/Booking');
 const Payment = require('../models/Payment');
-const { sendInstallmentPlan } = require('../services/whatsappService');
+const { sendInstallmentPlan, sendEnquiryConfirmation } = require('../services/whatsappService');
+
+// Generates a short unique DJ room code e.g. "DJ-7A3K"
+function generateDJRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'DJ-';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
 
 // Normalise display names → Mongoose enum slugs
 const VENUE_MAP = {
@@ -96,6 +104,7 @@ const createBooking = async (req, res, next) => {
         totalCost: total    || 0,
       },
       status: 'enquiry',
+      djRoomCode: generateDJRoomCode(), // event-specific DJ room join code
     });
 
     // ── Instalment plan dates ──────────────────────────────────────────────
@@ -160,6 +169,17 @@ const createBooking = async (req, res, next) => {
 
     // ── Send WhatsApp notification ─────────────────────────────────────────
     if (clientPhone) {
+      // 1. Enquiry confirmation (instant acknowledgement)
+      sendEnquiryConfirmation(clientPhone, {
+        clientName,
+        enquiryId: booking.enquiryId,
+        eventType: eventType || eventSlug,
+        eventDate,
+        venue: venue || venueSlug,
+        pax: Number(pax),
+      }).catch(err => console.error('[WhatsApp] enquiry confirmation error:', err.message));
+
+      // 2. Full installment plan (booking details + payment schedule)
       sendInstallmentPlan(clientPhone, {
         enquiryId:  booking.enquiryId,
         clientName,
@@ -171,7 +191,20 @@ const createBooking = async (req, res, next) => {
         tranche1: { amount: amt30, dueDate: advanceDeadline },
         tranche2: { amount: amt50, dueDate: preEventDate },
         tranche3: { amount: amt20, dueDate: onEventDate },
-      }).catch(err => console.error('[WhatsApp] send error:', err.message));
+      }).catch(err => console.error('[WhatsApp] installment plan error:', err.message));
+    }
+
+    // ── Real-time Finance Dashboard update ────────────────────────────────
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('booking:created', {
+        bookingId:  booking._id,
+        enquiryId:  booking.enquiryId,
+        clientName: partyName ? `${partyName} (${clientName})` : clientName,
+        eventDate,
+        totalValue: grandTotal,
+        status:     'temporary',
+      });
     }
 
     res.status(201).json({

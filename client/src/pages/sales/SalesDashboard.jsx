@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import useBookingStore from '../../store/bookingSlice';
 import './SalesDashboard.css';
 
@@ -8,11 +9,51 @@ export default function SalesDashboard() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('dashboard');
   const [search, setSearch] = useState('');
+  const [liveAlert, setLiveAlert] = useState(null); // { msg, type }
 
   const { bookings, fetchBookings, loading } = useBookingStore();
 
+  // ── Initial fetch
   useEffect(() => {
     fetchBookings();
+  }, [fetchBookings]);
+
+  // ── Real-time Socket.io listeners
+  useEffect(() => {
+    const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001');
+    const socket = io(SOCKET_URL, { transports: ['websocket'] });
+
+    socket.on('booking:statusChanged', (data) => {
+      console.log('📡 [Sales] booking:statusChanged', data);
+      // Update the local bookings list optimistically
+      useBookingStore.setState(s => ({
+        bookings: s.bookings.map(b =>
+          b._id === data.bookingId || b.enquiryId === data.enquiryId
+            ? { ...b, status: data.newStatus }
+            : b
+        )
+      }));
+      // Show live alert
+      const statusLabels = { confirmed: '✅ Confirmed', completed: '🎉 Fully Paid', deposit: '💰 Advance Paid' };
+      setLiveAlert({
+        msg: `${data.clientName || data.enquiryId} — ${statusLabels[data.newStatus] || data.newStatus} (${data.tranchePaid || ''})`,
+        type: data.newStatus === 'completed' ? 'success' : 'info',
+      });
+      setTimeout(() => setLiveAlert(null), 6000);
+      // Full refresh after 3s to get complete data
+      setTimeout(() => fetchBookings(), 3000);
+    });
+
+    socket.on('qr:batch_sent', (data) => {
+      console.log('📡 [Sales] qr:batch_sent', data);
+      setLiveAlert({
+        msg: `🎟 ${data.guestCount} QR entry passes sent for ${data.eventName || data.enquiryId}`,
+        type: 'success',
+      });
+      setTimeout(() => setLiveAlert(null), 8000);
+    });
+
+    return () => socket.disconnect();
   }, [fetchBookings]);
 
   // Derived Statistics from Live DB
@@ -76,10 +117,13 @@ export default function SalesDashboard() {
   }, [bookings]);
 
   const STATUS_BADGE = {
-    confirmed: 'sd-badge--green',
-    enquiry: 'sd-badge--amber',
-    temporary: 'sd-badge--purple',
-    cancelled: 'sd-badge--red',
+    confirmed:       'sd-badge--green',
+    completed:       'sd-badge--green',
+    enquiry:         'sd-badge--amber',
+    temporary:       'sd-badge--purple',
+    'pending-payment': 'sd-badge--purple',
+    cancelled:       'sd-badge--red',
+    deposit:         'sd-badge--blue',
   };
 
   const filtered = bookings.filter(b => {
@@ -94,6 +138,22 @@ export default function SalesDashboard() {
 
   return (
     <div className="sd-root">
+      {/* ── Live Alert Toast ── */}
+      {liveAlert && (
+        <div style={{
+          position: 'fixed', top: 80, right: 24, zIndex: 9999,
+          background: liveAlert.type === 'success' ? 'rgba(95,191,138,0.15)' : 'rgba(91,143,232,0.15)',
+          border: `1px solid ${liveAlert.type === 'success' ? '#5FBF8A' : '#5B8FE8'}`,
+          borderRadius: 12, padding: '12px 20px', color: '#F5F0E8',
+          fontSize: 13, fontWeight: 500, maxWidth: 340,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          <div style={{ color: liveAlert.type === 'success' ? '#5FBF8A' : '#5B8FE8', fontSize: 11, marginBottom: 4, letterSpacing: '0.1em', textTransform: 'uppercase' }}>⚡ Live Update</div>
+          {liveAlert.msg}
+        </div>
+      )}
+
       {/* ── Topbar ── */}
       <div className="sd-topbar">
         <div className="sd-topbar__brand">

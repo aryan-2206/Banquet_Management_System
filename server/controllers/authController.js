@@ -2,7 +2,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { JWT_SECRET, JWT_EXPIRE } = require('../config/env');
 
-const signToken = (id) => jwt.sign({ id }, JWT_SECRET, { expiresIn: JWT_EXPIRE });
+const signToken = (user) => jwt.sign(
+  { id: user._id, role: user.role, name: user.name },
+  JWT_SECRET,
+  { expiresIn: JWT_EXPIRE }
+);
 
 // @desc  Register a new user
 // POST  /api/auth/register
@@ -13,7 +17,7 @@ const register = async (req, res, next) => {
     if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
 
     const user = await User.create({ name, email, password, role, phone });
-    const token = signToken(user._id);
+    const token = signToken(user);
 
     res.status(201).json({
       success: true,
@@ -41,7 +45,7 @@ const login = async (req, res, next) => {
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
 
-    const token = signToken(user._id);
+    const token = signToken(user);
     res.json({
       success: true,
       token,
